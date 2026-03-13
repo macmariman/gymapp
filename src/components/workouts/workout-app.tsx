@@ -648,6 +648,11 @@ function SessionPanel({
                                         inputMode={getInputMode(
                                           exercise.logType
                                         )}
+                                        onFocus={(event) => {
+                                          if (event.target.value.length > 0) {
+                                            event.target.select()
+                                          }
+                                        }}
                                         onChange={(event) =>
                                           onValueChange(
                                             inputKey,
