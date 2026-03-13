@@ -1,6 +1,6 @@
-# Next.js Boilerplate
+# Gym App
 
-A focused starter built with Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, Prisma, and Jest. This repository is intended as a clean base for new product work, not as a batteries-included framework.
+Workout tracking app built with Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, Prisma, and Jest.
 
 ## Tech Stack
 
@@ -9,18 +9,16 @@ A focused starter built with Next.js App Router, TypeScript, Tailwind CSS, shadc
 - TypeScript with strict mode
 - Tailwind CSS 4
 - shadcn/ui primitives
-- Prisma with SQLite
+- Prisma with PostgreSQL
 - Jest and React Testing Library
 - ESLint and Prettier
 
-## Included
+## Features
 
-- App Router structure under `app/`
-- Shared UI and layout components under `src/components/`
-- Prisma client helper and example schema
-- Theme provider and theme toggle
-- Error boundary and centralized logging helpers
-- Jest configuration for unit and component tests
+- Fixed workout routine loaded from seed data
+- Monthly attendance derived from saved sessions
+- Weight logging by set for weighted exercises
+- Read-only history of saved sessions
 
 ## Project Structure
 
@@ -60,11 +58,29 @@ A focused starter built with Next.js App Router, TypeScript, Tailwind CSS, shadc
 ```bash
 npm install
 cp .env.example .env
-npx prisma migrate dev --name init
+npx prisma migrate deploy
+npm run db:seed
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Database Setup
+
+Use Neon PostgreSQL in Vercel. Configure these environment variables:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+```
+
+Then run:
+
+```bash
+npx prisma generate
+npx prisma migrate deploy
+npm run db:seed
+```
 
 ## Available Scripts
 
@@ -85,9 +101,8 @@ npm run check
 ## Notes
 
 - `src/components/ui/` contains generated shadcn/ui primitives. Prefer composing them instead of rewriting them.
-- Prisma is configured for SQLite by default through `DATABASE_URL` in `.env`.
-- Prettier configuration lives in `prettier.config.mjs`.
-- This template does not currently include Docker, Playwright, or React Hook Form.
+- `WorkoutSession` is the source of truth for monthly attendance.
+- The first version is single-user and does not include authentication.
 
 ## Documentation
 

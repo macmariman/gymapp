@@ -1,22 +1,23 @@
 "use client";
 import Link from 'next/link';
+import { Dumbbell } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 function Header() {
   return (
-    <header className="w-full border-b bg-background/95 sticky top-0 z-50">
-      <div className="flex items-center justify-between h-16 px-4 md:px-12">
-        {/* Logo */}
-        <Link href="/" className="group">
-          <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Next.js Boilerplate
-          </span>
+    <header className="sticky top-0 z-50 w-full border-b border-white/40 bg-white/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-6">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="rounded-2xl bg-slate-950 p-2 text-white shadow-lg shadow-slate-950/10">
+            <Dumbbell className="size-4" />
+          </div>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold tracking-[0.16em] text-slate-950 uppercase">
+              Gym App
+            </div>
+            <div className="text-xs text-slate-500">Rutina y progreso</div>
+          </div>
         </Link>
-
-        {/* Nav - Add your navigation items here */}
-        <nav className="flex items-center gap-3">
-          {/* Example navigation items can be added here */}
-        </nav>
 
         <div className="flex items-center gap-2">
           <ThemeToggle />

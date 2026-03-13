@@ -1,17 +1,97 @@
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// Example model - customize for your application
-model User {
-  id        String   @id @default(cuid())
+model Routine {
+  id        String           @id @default(cuid())
   name      String
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  summary   String
+  sortOrder Int
+  sections  RoutineSection[]
+  sessions  WorkoutSession[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model RoutineSection {
+  id        String          @id @default(cuid())
+  routineId String
+  name      String
+  sortOrder Int
+  routine   Routine         @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  groups    ExerciseGroup[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([routineId, sortOrder])
+}
+
+model ExerciseGroup {
+  id        String          @id @default(cuid())
+  sectionId String
+  name      String
+  series    Int
+  sortOrder Int
+  section   RoutineSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  exercises Exercise[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([sectionId, sortOrder])
+}
+
+model Exercise {
+  id           String             @id @default(cuid())
+  groupId       String
+  name         String
+  targetType   ExerciseTargetType
+  targetValue  Int
+  note         String?
+  tracksWeight Boolean            @default(false)
+  sortOrder    Int
+  group        ExerciseGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  setLogs      ExerciseSetLog[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([groupId, sortOrder])
+}
+
+model WorkoutSession {
+  id          String           @id @default(cuid())
+  routineId   String
+  performedAt DateTime         @default(now())
+  note        String?
+  routine     Routine          @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  setLogs     ExerciseSetLog[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([routineId, performedAt])
+  @@index([performedAt])
+}
+
+model ExerciseSetLog {
+  id         String         @id @default(cuid())
+  sessionId  String
+  exerciseId String
+  setNumber  Int
+  weightKg   Decimal?       @db.Decimal(5, 2)
+  session    WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise   Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@unique([sessionId, exerciseId, setNumber])
+  @@index([exerciseId, createdAt])
+}
+
+enum ExerciseTargetType {
+  reps
+  time
 }
