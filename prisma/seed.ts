@@ -1,5 +1,6 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { workoutSeedData } from '../src/lib/workouts/seed-data';
+import { workoutSeedData } from '../src/lib/workouts/seed-data.js';
 
 const prisma = new PrismaClient();
 

@@ -28,13 +28,13 @@ export type SeedRoutine = {
 export const workoutSeedData: SeedRoutine[] = [
   {
     name: 'Rutina 1',
-    summary: 'Pecho, cuádriceps y zona media',
+    summary: 'Zona media y fuerza',
     sections: [
       {
         name: 'Zona media',
         groups: [
           {
-            name: 'Activación',
+            name: 'Zona media',
             series: 3,
             exercises: [
               {
@@ -65,7 +65,7 @@ export const workoutSeedData: SeedRoutine[] = [
         name: 'Fuerza',
         groups: [
           {
-            name: 'Bloque 1',
+            name: 'Pecho plano con barra + Sentadilla con KB',
             series: 3,
             exercises: [
               {
@@ -83,7 +83,7 @@ export const workoutSeedData: SeedRoutine[] = [
             ]
           },
           {
-            name: 'Bloque 2',
+            name: 'Pecho inclinado mancuernas + Fondo triceps en banco',
             series: 3,
             exercises: [
               {
@@ -101,7 +101,7 @@ export const workoutSeedData: SeedRoutine[] = [
             ]
           },
           {
-            name: 'Bloque 3',
+            name: 'Apertura en máquina + Silla de cuádriceps',
             series: 3,
             exercises: [
               {
@@ -124,13 +124,13 @@ export const workoutSeedData: SeedRoutine[] = [
   },
   {
     name: 'Rutina 2',
-    summary: 'Espalda, femorales y estabilidad',
+    summary: 'Zona media y fuerza',
     sections: [
       {
         name: 'Zona media',
         groups: [
           {
-            name: 'Activación',
+            name: 'Zona media',
             series: 3,
             exercises: [
               {
@@ -159,7 +159,7 @@ export const workoutSeedData: SeedRoutine[] = [
         name: 'Fuerza',
         groups: [
           {
-            name: 'Bloque 1',
+            name: 'Remo bajo + Silla flexora',
             series: 3,
             exercises: [
               {
@@ -177,7 +177,7 @@ export const workoutSeedData: SeedRoutine[] = [
             ]
           },
           {
-            name: 'Bloque 2',
+            name: 'Percha dorsal + Aductores en máquina',
             series: 3,
             exercises: [
               {
@@ -195,7 +195,7 @@ export const workoutSeedData: SeedRoutine[] = [
             ]
           },
           {
-            name: 'Bloque 3',
+            name: 'Remo medio en máquina + Bíceps polea baja barra',
             series: 3,
             exercises: [
               {
@@ -218,13 +218,13 @@ export const workoutSeedData: SeedRoutine[] = [
   },
   {
     name: 'Rutina 3',
-    summary: 'Hombros, glúteos y tren inferior',
+    summary: 'Zona media y fuerza',
     sections: [
       {
         name: 'Zona media',
         groups: [
           {
-            name: 'Activación',
+            name: 'Zona media',
             series: 3,
             exercises: [
               {
@@ -254,7 +254,7 @@ export const workoutSeedData: SeedRoutine[] = [
         name: 'Fuerza',
         groups: [
           {
-            name: 'Bloque 1',
+            name: 'Estocada estática mancuernas + Press hombro barra',
             series: 3,
             exercises: [
               {
@@ -272,7 +272,7 @@ export const workoutSeedData: SeedRoutine[] = [
             ]
           },
           {
-            name: 'Bloque 2',
+            name: 'Prensa con pies en V + Vuelo frontal mancuernas',
             series: 3,
             exercises: [
               {
@@ -290,7 +290,7 @@ export const workoutSeedData: SeedRoutine[] = [
             ]
           },
           {
-            name: 'Bloque 3',
+            name: 'Biceps mancuernas + Triceps polea alta cuerda',
             series: 3,
             exercises: [
               {

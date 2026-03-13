@@ -175,6 +175,10 @@ function ExerciseSummary({
   );
 }
 
+function shouldHideGroupName(group: ExerciseGroupView) {
+  return group.name === group.sectionName;
+}
+
 function RoutineDetail({
   routine,
   activeGroupId,
@@ -217,7 +221,9 @@ function RoutineDetail({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-950">{group.name}</div>
+                    {!shouldHideGroupName(group) ? (
+                      <div className="text-sm font-semibold text-slate-950">{group.name}</div>
+                    ) : null}
                     <div className="text-xs text-slate-500">{group.series} series</div>
                   </div>
                   {group.exercises.some((exercise) => exercise.tracksWeight) ? (
@@ -355,7 +361,9 @@ function SessionPanel({
             <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
               <div className="text-sm font-semibold text-slate-950">{routine.name}</div>
               <div className="mt-1 text-xs text-slate-500">
-                {activeGroup.sectionName} · {activeGroup.name} · {activeGroup.series} series
+                {activeGroup.sectionName}
+                {!shouldHideGroupName(activeGroup) ? ` · ${activeGroup.name}` : ''}
+                {` · ${activeGroup.series} series`}
               </div>
             </div>
 
