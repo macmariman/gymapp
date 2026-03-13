@@ -496,7 +496,6 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
 function SessionPanel({
   routine,
   note,
-  status,
   isPending,
   values,
   onNoteChange,
@@ -506,7 +505,6 @@ function SessionPanel({
 }: {
   routine: RoutineWithStructure
   note: string
-  status: SubmissionState
   isPending: boolean
   values: Record<string, string>
   onNoteChange: (value: string) => void
@@ -937,7 +935,6 @@ export function WorkoutApp({
               }
               panelRef={sessionPanelRef}
               routine={selectedRoutine}
-              status={status}
               values={values}
             />
           ) : null}
