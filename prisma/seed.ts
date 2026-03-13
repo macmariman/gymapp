@@ -33,7 +33,7 @@ async function main() {
                     targetType: exercise.targetType,
                     targetValue: exercise.targetValue,
                     note: exercise.note,
-                    tracksWeight: exercise.tracksWeight,
+                    logType: exercise.logType,
                     sortOrder: exerciseIndex
                   }))
                 }

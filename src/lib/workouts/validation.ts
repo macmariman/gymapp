@@ -1,14 +1,11 @@
 import { z } from 'zod';
 import type { CreateWorkoutSessionInput } from '@/lib/workouts/types';
 
-const decimalPattern = /^\d+(\.\d{1,2})?$/;
+const numericPattern = /^\d+(\.\d{1,2})?$/;
 
-const weightSchema = z
-  .union([
-    z.number().positive(),
-    z.string().trim().min(1).regex(decimalPattern)
-  ])
-  .transform((value) => (typeof value === 'number' ? value.toFixed(2) : Number(value).toFixed(2)));
+const loggedValueSchema = z
+  .union([z.number().positive(), z.string().trim().min(1).regex(numericPattern)])
+  .transform((value) => String(value).trim());
 
 export const createWorkoutSessionSchema = z.object({
   routineId: z.string().trim().min(1),
@@ -23,7 +20,7 @@ export const createWorkoutSessionSchema = z.object({
       z.object({
         exerciseId: z.string().trim().min(1),
         setNumber: z.number().int().positive(),
-        weightKg: weightSchema
+        value: loggedValueSchema
       })
     )
     .min(1)

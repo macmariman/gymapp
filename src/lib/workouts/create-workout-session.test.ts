@@ -31,7 +31,7 @@ describe('createWorkoutSession', () => {
               exercises: [
                 {
                   id: 'exercise-1',
-                  tracksWeight: true
+                  logType: 'weight'
                 }
               ]
             }
@@ -50,7 +50,7 @@ describe('createWorkoutSession', () => {
         {
           exerciseId: 'exercise-1',
           setNumber: 1,
-          weightKg: '60'
+          value: '60'
         }
       ]
     });
@@ -67,7 +67,7 @@ describe('createWorkoutSession', () => {
           {
             exerciseId: 'exercise-999',
             setNumber: 1,
-            weightKg: '60'
+            value: '60'
           }
         ]
       })

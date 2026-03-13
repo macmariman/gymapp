@@ -2,7 +2,8 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "ExerciseTargetType" AS ENUM ('reps', 'time');
+CREATE TYPE "ExerciseMetricType" AS ENUM ('reps', 'weight', 'time');
+CREATE TYPE "ExerciseLogType" AS ENUM ('none', 'reps', 'weight', 'time');
 
 -- CreateTable
 CREATE TABLE "Routine" (
@@ -46,10 +47,10 @@ CREATE TABLE "Exercise" (
     "id" TEXT NOT NULL,
     "groupId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "targetType" "ExerciseTargetType" NOT NULL,
+    "targetType" "ExerciseMetricType" NOT NULL,
     "targetValue" INTEGER NOT NULL,
     "note" TEXT,
-    "tracksWeight" BOOLEAN NOT NULL DEFAULT false,
+    "logType" "ExerciseLogType" NOT NULL DEFAULT 'none',
     "sortOrder" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -76,6 +77,8 @@ CREATE TABLE "ExerciseSetLog" (
     "exerciseId" TEXT NOT NULL,
     "setNumber" INTEGER NOT NULL,
     "weightKg" DECIMAL(5,2),
+    "repsCount" INTEGER,
+    "durationSeconds" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ExerciseSetLog_pkey" PRIMARY KEY ("id")
@@ -119,4 +122,3 @@ ALTER TABLE "ExerciseSetLog" ADD CONSTRAINT "ExerciseSetLog_sessionId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "ExerciseSetLog" ADD CONSTRAINT "ExerciseSetLog_exerciseId_fkey" FOREIGN KEY ("exerciseId") REFERENCES "Exercise"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

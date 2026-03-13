@@ -50,10 +50,10 @@ model Exercise {
   id           String             @id @default(cuid())
   groupId       String
   name         String
-  targetType   ExerciseTargetType
+  targetType   ExerciseMetricType
   targetValue  Int
   note         String?
-  tracksWeight Boolean            @default(false)
+  logType      ExerciseLogType    @default(none)
   sortOrder    Int
   group        ExerciseGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   setLogs      ExerciseSetLog[]
@@ -83,6 +83,8 @@ model ExerciseSetLog {
   exerciseId String
   setNumber  Int
   weightKg   Decimal?       @db.Decimal(5, 2)
+  repsCount  Int?
+  durationSeconds Int?
   session    WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   exercise   Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   createdAt  DateTime       @default(now())
@@ -91,7 +93,15 @@ model ExerciseSetLog {
   @@index([exerciseId, createdAt])
 }
 
-enum ExerciseTargetType {
+enum ExerciseMetricType {
   reps
+  weight
+  time
+}
+
+enum ExerciseLogType {
+  none
+  reps
+  weight
   time
 }

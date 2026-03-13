@@ -1,85 +1,191 @@
-'use client';
+"use client"
 
-import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { CalendarDays, ChevronRight, Clock3, Dumbbell, NotebookPen } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import * as React from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Dumbbell,
+  NotebookPen,
+  X,
+} from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import {
+  buildAttendanceGrid,
+  formatRelativeSessionDate,
+  formatSessionDate,
+  formatTarget,
+} from "@/lib/workouts/formatting"
+import type {
+  ExerciseLogType,
+  ExerciseGroupView,
+  RoutineSummary,
+  RoutineWithStructure,
+  WorkoutPageData,
+} from "@/lib/workouts/types"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle
-} from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+  CardTitle,
+} from "@/components/ui/card"
 import {
-  buildAttendanceGrid,
-  formatRelativeSessionDate,
-  formatSessionDate,
-  formatTarget
-} from '@/lib/workouts/formatting';
-import type {
-  ExerciseGroupView,
-  RoutineSummary,
-  RoutineWithStructure,
-  WorkoutPageData
-} from '@/lib/workouts/types';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
-const weekDays = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
+const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
 
 type SubmissionState =
-  | { type: 'idle'; message: string }
-  | { type: 'success'; message: string }
-  | { type: 'error'; message: string };
+  | { type: "idle"; message: string }
+  | { type: "success"; message: string }
+  | { type: "error"; message: string }
 
-function buildWeightInputKey(exerciseId: string, setNumber: number) {
-  return `${exerciseId}:${setNumber}`;
+function FloatingToast({
+  status,
+  onClose,
+}: {
+  status: Exclude<SubmissionState, { type: "idle"; message: string }>
+  onClose: () => void
+}) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+      <div
+        className={cn(
+          "pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] backdrop-blur",
+          status.type === "error"
+            ? "border-red-200 bg-red-50/95 text-red-700"
+            : "border-emerald-200 bg-emerald-50/95 text-emerald-700"
+        )}
+        role="status"
+      >
+        <div className="text-sm font-medium">{status.message}</div>
+        <button
+          aria-label="Cerrar notificación"
+          className="rounded-full p-1 opacity-70 transition hover:bg-black/5 hover:opacity-100"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
-function getDefaultGroupId(routine: RoutineWithStructure | undefined) {
+function buildWeightInputKey(exerciseId: string, setNumber: number) {
+  return `${exerciseId}:${setNumber}`
+}
+
+function buildInitialValues(routine: RoutineWithStructure | undefined) {
   if (!routine) {
-    return '';
+    return {}
   }
 
-  const weightedGroup = routine.sections
-    .flatMap((section) => section.groups)
-    .find((group) => group.exercises.some((exercise) => exercise.tracksWeight));
+  return routine.sections.reduce<Record<string, string>>((sectionAccumulator, section) => {
+    section.groups.forEach((group) => {
+      group.exercises.forEach((exercise) => {
+        if (!isExerciseLoggable(exercise.logType)) {
+          return
+        }
 
-  return weightedGroup?.id ?? routine.sections[0]?.groups[0]?.id ?? '';
+        exercise.lastLogValues.forEach((value, index) => {
+          const setNumber = index + 1
+
+          if (setNumber > group.series) {
+            return
+          }
+
+          sectionAccumulator[buildWeightInputKey(exercise.id, setNumber)] = value
+        })
+      })
+    })
+
+    return sectionAccumulator
+  }, {})
+}
+
+function isExerciseLoggable(logType: ExerciseLogType) {
+  return logType !== "none"
+}
+
+function getInputPlaceholder(logType: ExerciseLogType) {
+  if (logType === "weight") {
+    return "kg"
+  }
+
+  if (logType === "time") {
+    return "s"
+  }
+
+  return "reps"
+}
+
+function getInputMode(logType: ExerciseLogType) {
+  return logType === "weight" ? "decimal" : "numeric"
+}
+
+function getStatusLabel(logType: ExerciseLogType, summary: string | null) {
+  if (summary) {
+    return `Último: ${summary}`
+  }
+
+  if (logType === "time") {
+    return "Sin tiempo registrado todavía"
+  }
+
+  if (logType === "reps") {
+    return "Sin repeticiones registradas todavía"
+  }
+
+  if (logType === "weight") {
+    return "Sin peso registrado todavía"
+  }
+
+  return "Sin registro todavía"
 }
 
 function RoutineList({
   routines,
   selectedRoutineId,
-  onSelect
+  onSelect,
 }: {
-  routines: RoutineSummary[];
-  selectedRoutineId: string;
-  onSelect: (routineId: string) => void;
+  routines: RoutineSummary[]
+  selectedRoutineId: string
+  onSelect: (routineId: string) => void
 }) {
   return (
     <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
       <CardHeader className="px-5">
         <CardTitle className="text-xl text-slate-950">Rutinas</CardTitle>
-        <CardDescription>Tu plan fijo cargado desde la base.</CardDescription>
+        <CardDescription>Elegí la rutina de hoy.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 px-5">
         {routines.map((routine) => (
           <button
             key={routine.id}
             className={cn(
-              'flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition',
+              "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition",
               routine.id === selectedRoutineId
-                ? 'border-emerald-300 bg-emerald-50'
-                : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
             )}
             onClick={() => onSelect(routine.id)}
             type="button"
           >
             <div className="space-y-1">
-              <div className="text-sm font-semibold text-slate-950">{routine.name}</div>
+              <div className="text-sm font-semibold text-slate-950">
+                {routine.name}
+              </div>
               <div className="text-xs text-slate-500">{routine.summary}</div>
               <div className="text-xs text-slate-600">
                 {formatRelativeSessionDate(routine.lastSessionAt)}
@@ -90,176 +196,194 @@ function RoutineList({
         ))}
       </CardContent>
     </Card>
-  );
+  )
 }
 
-function AttendanceCard({ attendance }: Pick<WorkoutPageData, 'attendance'>) {
-  const cells = buildAttendanceGrid(attendance);
+function AttendanceCard({
+  attendance,
+  history,
+}: Pick<WorkoutPageData, "attendance" | "history">) {
+  const [isOpen, setIsOpen] = useState(true)
+  const [visibleMonthDate, setVisibleMonthDate] = useState(
+    () => new Date(attendance.year, attendance.month - 1, 1)
+  )
+  const today = new Date()
+  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  const visibleMonthStart = new Date(
+    visibleMonthDate.getFullYear(),
+    visibleMonthDate.getMonth(),
+    1
+  )
+  const canGoForward = visibleMonthStart < currentMonthStart
+  const visibleAttendance = React.useMemo(() => {
+    const daysWithSessions = [
+      ...new Set(
+        history
+          .map((entry) => new Date(entry.performedAt))
+          .filter(
+            (date) =>
+              date.getFullYear() === visibleMonthDate.getFullYear() &&
+              date.getMonth() === visibleMonthDate.getMonth()
+          )
+          .map((date) => date.getDate())
+      ),
+    ].sort((left, right) => left - right)
+
+    return {
+      year: visibleMonthDate.getFullYear(),
+      month: visibleMonthDate.getMonth() + 1,
+      daysWithSessions,
+    }
+  }, [history, visibleMonthDate])
+  const cells = buildAttendanceGrid(visibleAttendance)
 
   return (
-    <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
-      <CardHeader className="px-5">
-        <CardTitle className="text-xl text-slate-950">Asistencia</CardTitle>
-        <CardDescription>Los días marcados salen de sesiones reales guardadas.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 px-5">
-        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div className="space-y-1">
-            <div className="text-sm font-medium text-slate-950">
-              {new Intl.DateTimeFormat('es-UY', { month: 'long', year: 'numeric' }).format(
-                new Date(attendance.year, attendance.month - 1, 1)
-              )}
-            </div>
-            <div className="text-xs text-slate-500">Asistencia del mes actual</div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-semibold text-slate-950">
-              {attendance.daysWithSessions.length}
-            </div>
-            <div className="text-xs text-slate-500">sesiones</div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 grid grid-cols-7 gap-2">
-            {weekDays.map((label) => (
-              <div
-                key={label}
-                className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-              >
-                {label}
+    <Collapsible onOpenChange={setIsOpen} open={isOpen}>
+      <Card className="gap-0 rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
+        <CardHeader className="px-5 pb-0">
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-start justify-between gap-4 text-left"
+              type="button"
+            >
+              <div className="space-y-1">
+                <CardTitle className="text-xl text-slate-950">
+                  Asistencia
+                </CardTitle>
+                <CardDescription>
+                  Los días marcados salen de sesiones reales guardadas.
+                </CardDescription>
               </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-2">
-            {cells.map((cell, index) =>
-              cell.day ? (
-                <div
-                  key={`${cell.day}-${index}`}
-                  className={cn(
-                    'flex aspect-square items-center justify-center rounded-2xl text-sm font-semibold',
-                    cell.completed ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
-                  )}
+              <ChevronDown
+                className={cn(
+                  "mt-1 size-5 shrink-0 text-slate-500 transition-transform duration-200",
+                  isOpen ? "rotate-0" : "-rotate-90"
+                )}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent className="overflow-hidden">
+          <CardContent className="space-y-4 px-5 pt-4">
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <button
+                  aria-label="Mes anterior"
+                  className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() =>
+                    setVisibleMonthDate(
+                      (currentDate) =>
+                        new Date(
+                          currentDate.getFullYear(),
+                          currentDate.getMonth() - 1,
+                          1
+                        )
+                    )
+                  }
+                  type="button"
                 >
-                  {cell.day}
+                  <ChevronLeft className="size-4" />
+                </button>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-slate-950">
+                    {new Intl.DateTimeFormat("es-UY", {
+                      month: "long",
+                      year: "numeric",
+                    }).format(visibleMonthDate)}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Asistencia del mes actual
+                  </div>
                 </div>
-              ) : (
-                <div key={`empty-${index}`} className="aspect-square rounded-2xl bg-transparent" />
-              )
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+                <button
+                  aria-label="Mes siguiente"
+                  className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canGoForward}
+                  onClick={() =>
+                    setVisibleMonthDate(
+                      (currentDate) =>
+                        new Date(
+                          currentDate.getFullYear(),
+                          currentDate.getMonth() + 1,
+                          1
+                        )
+                    )
+                  }
+                  type="button"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-semibold text-slate-950">
+                  {visibleAttendance.daysWithSessions.length}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {visibleAttendance.daysWithSessions.length === 1
+                    ? "día entrenado"
+                    : "días entrenados"}
+                </div>
+              </div>
+            </div>
 
-function ExerciseSummary({
-  exercise
-}: {
-  exercise: ExerciseGroupView['exercises'][number];
-}) {
-  return (
-    <div className="space-y-1 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div className="text-sm font-medium text-slate-950">{exercise.name}</div>
-      <div className="text-xs text-slate-500">{formatTarget(exercise)}</div>
-      <div className="text-xs text-slate-600">
-        {exercise.tracksWeight
-          ? exercise.lastWeightSummary
-            ? `Último: ${exercise.lastWeightSummary}`
-            : 'Sin registro todavía'
-          : 'Objetivo fijo'}
-      </div>
-    </div>
-  );
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 grid grid-cols-7 gap-2">
+                {weekDays.map((label) => (
+                  <div
+                    key={label}
+                    className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-2">
+                {cells.map((cell, index) =>
+                  cell.day ? (
+                    <div
+                      key={`${cell.day}-${index}`}
+                      className={cn(
+                        "flex aspect-square items-center justify-center rounded-2xl text-sm font-semibold",
+                        cell.completed
+                          ? "bg-emerald-500 text-white"
+                          : "bg-slate-100 text-slate-500"
+                      )}
+                    >
+                      {cell.day}
+                    </div>
+                  ) : (
+                    <div
+                      key={`empty-${index}`}
+                      className="aspect-square rounded-2xl bg-transparent"
+                    />
+                  )
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  )
 }
 
 function shouldHideGroupName(group: ExerciseGroupView) {
-  return group.name === group.sectionName;
+  return group.name === group.sectionName
 }
 
-function RoutineDetail({
-  routine,
-  activeGroupId,
-  onSelectGroup
-}: {
-  routine: RoutineWithStructure;
-  activeGroupId: string;
-  onSelectGroup: (groupId: string) => void;
-}) {
-  return (
-    <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
-      <CardHeader className="px-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-xl text-slate-950">{routine.name}</CardTitle>
-            <CardDescription>{routine.summary}</CardDescription>
-          </div>
-          <Badge className="rounded-full bg-slate-900 px-3 py-1 text-white hover:bg-slate-900">
-            {formatRelativeSessionDate(routine.lastSessionAt)}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5 px-5">
-        {routine.sections.map((section) => (
-          <div key={section.id} className="space-y-3">
-            <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">
-              {section.name}
-            </div>
-            {section.groups.map((group) => (
-              <button
-                key={group.id}
-                className={cn(
-                  'w-full rounded-[24px] border p-4 text-left transition',
-                  group.id === activeGroupId
-                    ? 'border-emerald-300 bg-emerald-50'
-                    : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
-                )}
-                onClick={() => onSelectGroup(group.id)}
-                type="button"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    {!shouldHideGroupName(group) ? (
-                      <div className="text-sm font-semibold text-slate-950">{group.name}</div>
-                    ) : null}
-                    <div className="text-xs text-slate-500">{group.series} series</div>
-                  </div>
-                  {group.exercises.some((exercise) => exercise.tracksWeight) ? (
-                    <Badge
-                      variant="outline"
-                      className="rounded-full border-emerald-200 bg-white text-emerald-700"
-                    >
-                      Registrar
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="mt-3 space-y-3">
-                  {group.exercises.map((exercise, index) => (
-                    <div key={exercise.id} className="space-y-3">
-                      <ExerciseSummary exercise={exercise} />
-                      {index < group.exercises.length - 1 ? (
-                        <Separator className="bg-slate-200" />
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </button>
-            ))}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
+function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
+  const [openEntryId, setOpenEntryId] = useState<string | null>(
+    history[0]?.id ?? null
+  )
 
-function SessionHistory({ history }: Pick<WorkoutPageData, 'history'>) {
   return (
     <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
       <CardHeader className="px-5">
         <CardTitle className="text-xl text-slate-950">Historial</CardTitle>
-        <CardDescription>Sesiones guardadas. Solo lectura en esta versión.</CardDescription>
+        <CardDescription>
+          Sesiones guardadas. Solo lectura en esta versión.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 px-5">
         {history.length === 0 ? (
@@ -268,86 +392,115 @@ function SessionHistory({ history }: Pick<WorkoutPageData, 'history'>) {
           </div>
         ) : (
           history.map((entry) => (
-            <div key={entry.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-slate-950">{entry.routineName}</div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                    <CalendarDays className="size-3.5" />
-                    {formatSessionDate(entry.performedAt)}
-                  </div>
-                </div>
-                {entry.note ? (
-                  <Badge
-                    variant="outline"
-                    className="rounded-full border-slate-300 bg-white text-slate-700"
+            <Collapsible
+              key={entry.id}
+              onOpenChange={(isOpen) =>
+                setOpenEntryId(isOpen ? entry.id : null)
+              }
+              open={openEntryId === entry.id}
+            >
+              <div className="rounded-2xl border border-slate-200 bg-slate-50">
+                <CollapsibleTrigger asChild>
+                  <button
+                    className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+                    type="button"
                   >
-                    Con nota
-                  </Badge>
-                ) : null}
-              </div>
-              {entry.note ? (
-                <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600">
-                  {entry.note}
-                </div>
-              ) : null}
-              <div className="mt-3 space-y-2">
-                {entry.exercises.length === 0 ? (
-                  <div className="text-sm text-slate-500">Sin pesos registrados.</div>
-                ) : (
-                  entry.exercises.map((exercise) => (
-                    <div
-                      key={`${entry.id}-${exercise.exerciseId}`}
-                      className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-3"
-                    >
-                      <div className="text-sm text-slate-700">{exercise.exerciseName}</div>
-                      <div className="text-sm font-medium text-slate-950">
-                        {exercise.weightSummary}
+                    <div>
+                      <div className="text-sm font-semibold text-slate-950">
+                        {entry.routineName}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                        <CalendarDays className="size-3.5" />
+                        {formatSessionDate(entry.performedAt)}
                       </div>
                     </div>
-                  ))
-                )}
+                    <ChevronDown
+                      className={cn(
+                        "size-4 shrink-0 text-slate-400 transition-transform duration-200",
+                        openEntryId === entry.id ? "rotate-180" : "rotate-0"
+                      )}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="overflow-hidden">
+                  <div className="space-y-3 border-t border-slate-200 px-4 py-4">
+                    {entry.note ? (
+                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600">
+                        {entry.note}
+                      </div>
+                    ) : null}
+                    <div className="space-y-2">
+                      {entry.exercises.length === 0 ? (
+                        <div className="text-sm text-slate-500">
+                          Sin registros guardados.
+                        </div>
+                      ) : (
+                        entry.exercises.map((exercise) => (
+                          <div
+                            key={`${entry.id}-${exercise.exerciseId}`}
+                            className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-3"
+                          >
+                            <div className="text-sm text-slate-700">
+                              {exercise.exerciseName}
+                            </div>
+                            <div className="text-sm font-medium text-slate-950">
+                              {exercise.valueSummary}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
               </div>
-            </div>
+            </Collapsible>
           ))
         )}
       </CardContent>
     </Card>
-  );
+  )
 }
 
 function SessionPanel({
   routine,
-  activeGroup,
   note,
   status,
   isPending,
-  weights,
+  values,
   onNoteChange,
-  onWeightChange,
-  onSubmit
+  onValueChange,
+  onSubmit,
+  panelRef,
 }: {
-  routine: RoutineWithStructure;
-  activeGroup: ExerciseGroupView | undefined;
-  note: string;
-  status: SubmissionState;
-  isPending: boolean;
-  weights: Record<string, string>;
-  onNoteChange: (value: string) => void;
-  onWeightChange: (key: string, value: string) => void;
-  onSubmit: () => Promise<void>;
+  routine: RoutineWithStructure
+  note: string
+  status: SubmissionState
+  isPending: boolean
+  values: Record<string, string>
+  onNoteChange: (value: string) => void
+  onValueChange: (key: string, value: string) => void
+  onSubmit: () => Promise<void>
+  panelRef: React.RefObject<HTMLDivElement | null>
 }) {
-  const weightedExercises = activeGroup?.exercises.filter((exercise) => exercise.tracksWeight) ?? [];
-  const canSubmit = weightedExercises.length > 0;
+  const groupsWithTracking = routine.sections.flatMap((section) =>
+    section.groups.filter((group) =>
+      group.exercises.some((exercise) => isExerciseLoggable(exercise.logType))
+    )
+  )
+  const hasWeightedGroups = groupsWithTracking.length > 0
 
   return (
-    <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
+    <Card
+      ref={panelRef}
+      className="scroll-mt-24 rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]"
+    >
       <CardHeader className="px-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <CardTitle className="text-xl text-slate-950">Sesión</CardTitle>
             <CardDescription>
-              Guarda una sesión real con pesos por serie y una nota opcional.
+              Registrá toda la rutina en una sola carga, con valores por serie y
+              una nota opcional.
             </CardDescription>
           </div>
           <div className="rounded-2xl bg-emerald-100 p-2 text-emerald-800">
@@ -356,66 +509,143 @@ function SessionPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 px-5">
-        {activeGroup ? (
-          <>
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-950">{routine.name}</div>
+        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-slate-950">
+                {routine.name}
+              </div>
               <div className="mt-1 text-xs text-slate-500">
-                {activeGroup.sectionName}
-                {!shouldHideGroupName(activeGroup) ? ` · ${activeGroup.name}` : ''}
-                {` · ${activeGroup.series} series`}
+                {routine.summary}
               </div>
             </div>
+            <Badge className="rounded-full bg-slate-900 px-3 py-1 text-white hover:bg-slate-900">
+              {formatRelativeSessionDate(routine.lastSessionAt)}
+            </Badge>
+          </div>
+        </div>
 
-            {activeGroup.exercises.map((exercise, index) => (
-              <div key={exercise.id} className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                <div className="space-y-1">
-                  <div className="text-sm font-semibold text-slate-950">{exercise.name}</div>
-                  <div className="text-xs text-slate-500">{formatTarget(exercise)}</div>
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <Clock3 className="size-3.5 text-slate-400" />
-                    {exercise.tracksWeight
-                      ? exercise.lastWeightSummary
-                        ? `Último: ${exercise.lastWeightSummary}`
-                        : 'Sin registro todavía'
-                      : 'Este ejercicio no registra peso'}
+        {hasWeightedGroups ? (
+          <>
+            <div className="text-xs text-slate-500">
+              Completá los ejercicios con seguimiento real de esta rutina.
+            </div>
+
+            {routine.sections.map((section) => {
+              const sectionGroups = section.groups.filter((group) =>
+                group.exercises.some((exercise) =>
+                  isExerciseLoggable(exercise.logType)
+                )
+              )
+
+              if (sectionGroups.length === 0) {
+                return null
+              }
+
+              return (
+                <div key={section.id} className="space-y-3">
+                  <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">
+                    {section.name}
                   </div>
-                </div>
-
-                {exercise.tracksWeight ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: activeGroup.series }, (_, index) => {
-                      const setNumber = index + 1;
-                      const inputKey = buildWeightInputKey(exercise.id, setNumber);
-
-                      return (
-                        <label
-                          key={inputKey}
-                          className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                  {sectionGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          {!shouldHideGroupName(group) ? (
+                            <div className="text-sm font-semibold text-slate-950">
+                              {group.name}
+                            </div>
+                          ) : null}
+                          <div className="text-xs text-slate-500">
+                            {group.series} series
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full border-emerald-200 bg-white text-emerald-700"
                         >
-                          <span className="text-sm font-medium text-slate-700">Serie {setNumber}</span>
-                          <input
-                            className="h-10 w-28 rounded-xl border border-slate-200 bg-slate-50 px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                            inputMode="decimal"
-                            onChange={(event) => onWeightChange(inputKey, event.target.value)}
-                            placeholder="kg"
-                            value={weights[inputKey] ?? ''}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                    Objetivo fijo: {formatTarget(exercise)}
-                  </div>
-                )}
+                          {group.exercises.length} ejercicio
+                          {group.exercises.length === 1 ? "" : "s"}
+                        </Badge>
+                      </div>
 
-                {index < activeGroup.exercises.length - 1 ? (
-                  <Separator className="bg-slate-200" />
-                ) : null}
-              </div>
-            ))}
+                      {group.exercises.map((exercise) => (
+                        <div
+                          key={exercise.id}
+                          className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+                        >
+                          <div className="space-y-1">
+                            <div className="text-sm font-semibold text-slate-950">
+                              {exercise.name}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {formatTarget(exercise)}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              <Clock3 className="size-3.5 text-slate-400" />
+                              {getStatusLabel(
+                                exercise.logType,
+                                exercise.lastLogSummary
+                              )}
+                            </div>
+                          </div>
+
+                          {isExerciseLoggable(exercise.logType) ? (
+                            <div className="space-y-2">
+                              {Array.from(
+                                { length: group.series },
+                                (_, index) => {
+                                  const setNumber = index + 1
+                                  const inputKey = buildWeightInputKey(
+                                    exercise.id,
+                                    setNumber
+                                  )
+
+                                  return (
+                                    <label
+                                      key={inputKey}
+                                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                                    >
+                                      <span className="text-sm font-medium text-slate-700">
+                                        Serie {setNumber}
+                                      </span>
+                                      <input
+                                        aria-label={`${exercise.name} serie ${setNumber}`}
+                                        className="h-9 w-20 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                                        inputMode={getInputMode(
+                                          exercise.logType
+                                        )}
+                                        onChange={(event) =>
+                                          onValueChange(
+                                            inputKey,
+                                            event.target.value
+                                          )
+                                        }
+                                        placeholder={getInputPlaceholder(
+                                          exercise.logType
+                                        )}
+                                        value={values[inputKey] ?? ""}
+                                      />
+                                    </label>
+                                  )
+                                }
+                              )}
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                              Solo referencia: {formatTarget(exercise)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
 
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -431,163 +661,187 @@ function SessionPanel({
               />
             </div>
 
-            <div
-              className={cn(
-                'rounded-2xl border px-4 py-3 text-sm',
-                status.type === 'error'
-                  ? 'border-red-200 bg-red-50 text-red-700'
-                  : status.type === 'success'
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 bg-slate-50 text-slate-500'
-              )}
-            >
-              {status.message}
-            </div>
-
             <Button
               className="h-11 w-full rounded-full bg-slate-950 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={!canSubmit || isPending}
+              disabled={!hasWeightedGroups || isPending}
               onClick={() => {
-                void onSubmit();
+                void onSubmit()
               }}
               type="button"
             >
-              {isPending ? 'Guardando...' : 'Guardar sesión'}
+              {isPending ? "Guardando..." : "Guardar sesión"}
             </Button>
-            {!canSubmit ? (
-              <div className="text-xs text-slate-500">
-                Elegí un bloque con ejercicios de fuerza para registrar pesos.
-              </div>
-            ) : null}
           </>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-            No hay bloques disponibles para esta rutina.
+            Esta rutina no tiene ejercicios con seguimiento de peso.
           </div>
         )}
       </CardContent>
     </Card>
-  );
+  )
 }
 
 export function WorkoutApp({
   routines,
   routineDetails,
   attendance,
-  history
+  history,
 }: WorkoutPageData) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [selectedRoutineId, setSelectedRoutineId] = useState(routines[0]?.id ?? '');
-  const [activeGroupId, setActiveGroupId] = useState(() => getDefaultGroupId(routineDetails[0]));
-  const [note, setNote] = useState('');
-  const [weights, setWeights] = useState<Record<string, string>>({});
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [selectedRoutineId, setSelectedRoutineId] = useState(
+    routines[0]?.id ?? ""
+  )
+  const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
+  const [note, setNote] = useState("")
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const sessionPanelRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<SubmissionState>({
-    type: 'idle',
-    message: 'Guardá una sesión para actualizar asistencia, últimos pesos e historial.'
-  });
+    type: "idle",
+    message:
+      "Guardá una sesión para actualizar asistencia, últimos registros e historial.",
+  })
 
-  const selectedRoutine = routineDetails.find((routine) => routine.id === selectedRoutineId) ?? routineDetails[0];
-  const allGroups = selectedRoutine?.sections.flatMap((section) => section.groups) ?? [];
-  const defaultGroupId = getDefaultGroupId(selectedRoutine);
-  const activeGroup = allGroups.find((group) => group.id === activeGroupId);
-  const activeGroupExists = Boolean(activeGroup);
+  const selectedRoutine =
+    routineDetails.find((routine) => routine.id === selectedRoutineId) ??
+    routineDetails[0]
 
   useEffect(() => {
-    if (!defaultGroupId || activeGroupExists) {
-      return;
+    setValues(buildInitialValues(selectedRoutine))
+    setNote("")
+    setStatus({
+      type: "idle",
+        message:
+        "Guardá una sesión para actualizar asistencia, últimos registros e historial.",
+    })
+  }, [selectedRoutine])
+
+  useEffect(() => {
+    if (!shouldScrollToRoutine) {
+      return
     }
 
-    setActiveGroupId(defaultGroupId);
-  }, [activeGroupExists, defaultGroupId]);
+    sessionPanelRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    })
+    setShouldScrollToRoutine(false)
+  }, [selectedRoutineId, shouldScrollToRoutine])
 
   useEffect(() => {
-    setActiveGroupId(defaultGroupId);
-    setWeights({});
-    setNote('');
-    setStatus({
-      type: 'idle',
-      message: 'Guardá una sesión para actualizar asistencia, últimos pesos e historial.'
-    });
-  }, [defaultGroupId, selectedRoutineId]);
+    if (status.type !== "success") {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStatus({ type: "idle", message: "" })
+    }, 4000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [status])
+
+  function handleSelectRoutine(routineId: string) {
+    setSelectedRoutineId(routineId)
+    setShouldScrollToRoutine(true)
+  }
 
   async function handleSubmit() {
-    if (!selectedRoutine || !activeGroup) {
-      return;
+    if (!selectedRoutine || isSubmitting) {
+      return
     }
 
-    const setLogs = activeGroup.exercises.flatMap((exercise) => {
-      if (!exercise.tracksWeight) {
-        return [];
-      }
+    const setLogs = selectedRoutine.sections.flatMap((section) =>
+      section.groups.flatMap((group) =>
+        group.exercises.flatMap((exercise) => {
+          if (!isExerciseLoggable(exercise.logType)) {
+            return []
+          }
 
-      return Array.from({ length: activeGroup.series }, (_, index) => {
-        const setNumber = index + 1;
-        const key = buildWeightInputKey(exercise.id, setNumber);
-        const value = weights[key]?.trim();
+          return Array.from({ length: group.series }, (_, index) => {
+            const setNumber = index + 1
+            const key = buildWeightInputKey(exercise.id, setNumber)
+            const value = values[key]?.trim()
 
-        if (!value) {
-          return null;
-        }
+            if (!value) {
+              return null
+            }
 
-        return {
-          exerciseId: exercise.id,
-          setNumber,
-          weightKg: value
-        };
-      }).filter(Boolean) as Array<{
-        exerciseId: string;
-        setNumber: number;
-        weightKg: string;
-      }>;
-    });
+            return {
+              exerciseId: exercise.id,
+              setNumber,
+              value,
+            }
+          }).filter(Boolean) as Array<{
+            exerciseId: string
+            setNumber: number
+            value: string
+          }>
+        })
+      )
+    )
 
     if (setLogs.length === 0) {
       setStatus({
-        type: 'error',
-        message: 'Ingresá al menos un peso antes de guardar la sesión.'
-      });
-      return;
+        type: "error",
+        message: "Ingresá al menos un registro antes de guardar la sesión.",
+      })
+      return
     }
 
     try {
-      const response = await fetch('/api/workout-sessions', {
-        method: 'POST',
+      setIsSubmitting(true)
+
+      const response = await fetch("/api/workout-sessions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           routineId: selectedRoutine.id,
           note,
-          setLogs
-        })
-      });
+          setLogs,
+        }),
+      })
 
       if (!response.ok) {
-        const payload = (await response.json()) as { message?: string };
-        throw new Error(payload.message ?? 'No se pudo guardar la sesión.');
+        const payload = (await response.json()) as { message?: string }
+        throw new Error(payload.message ?? "No se pudo guardar la sesión.")
       }
 
-      setWeights({});
-      setNote('');
+      setValues({})
+      setNote("")
       setStatus({
-        type: 'success',
-        message: 'Sesión guardada correctamente.'
-      });
+        type: "success",
+        message: "Sesión guardada correctamente.",
+      })
 
       startTransition(() => {
-        router.refresh();
-      });
+        router.refresh()
+      })
     } catch (error) {
       setStatus({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'No se pudo guardar la sesión.'
-      });
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar la sesión.",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
+      {status.type !== "idle" ? (
+        <FloatingToast
+          onClose={() => setStatus({ type: "idle", message: "" })}
+          status={status}
+        />
+      ) : null}
+
       <div className="mb-6 space-y-2">
         <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">
           Gym App
@@ -596,45 +850,39 @@ export function WorkoutApp({
           Tu rutina y tus sesiones en un solo lugar.
         </h1>
         <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Elegís una rutina, registrás los pesos que hiciste y ves tu asistencia real del mes.
+          Elegís una rutina, registrás los pesos que hiciste y ves tu asistencia
+          real del mes.
         </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <div className="grid gap-4">
+          <AttendanceCard attendance={attendance} history={history} />
           <RoutineList
-            onSelect={setSelectedRoutineId}
+            onSelect={handleSelectRoutine}
             routines={routines}
             selectedRoutineId={selectedRoutineId}
           />
-          <AttendanceCard attendance={attendance} />
         </div>
 
         <div className="grid gap-4">
           {selectedRoutine ? (
-            <>
-              <RoutineDetail
-                activeGroupId={activeGroupId}
-                onSelectGroup={setActiveGroupId}
-                routine={selectedRoutine}
-              />
-              <SessionPanel
-                activeGroup={activeGroup}
-                isPending={isPending}
-                note={note}
-                onNoteChange={setNote}
-                onSubmit={handleSubmit}
-                onWeightChange={(key, value) =>
-                  setWeights((currentWeights) => ({
-                    ...currentWeights,
-                    [key]: value
-                  }))
-                }
-                routine={selectedRoutine}
-                status={status}
-                weights={weights}
-              />
-            </>
+            <SessionPanel
+              isPending={isPending || isSubmitting}
+              note={note}
+              onNoteChange={setNote}
+              onSubmit={handleSubmit}
+              onValueChange={(key, value) =>
+                setValues((currentValues) => ({
+                  ...currentValues,
+                  [key]: value,
+                }))
+              }
+              panelRef={sessionPanelRef}
+              routine={selectedRoutine}
+              status={status}
+              values={values}
+            />
           ) : null}
         </div>
       </div>
@@ -643,5 +891,5 @@ export function WorkoutApp({
         <SessionHistory history={history} />
       </div>
     </main>
-  );
+  )
 }

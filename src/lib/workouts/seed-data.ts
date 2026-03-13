@@ -1,11 +1,12 @@
-export type SeedTargetType = 'reps' | 'time';
+export type SeedMetricType = 'reps' | 'weight' | 'time';
+export type SeedLogType = 'none' | 'reps' | 'weight' | 'time';
 
 export type SeedExercise = {
   name: string;
-  targetType: SeedTargetType;
+  targetType: SeedMetricType;
   targetValue: number;
   note?: string;
-  tracksWeight: boolean;
+  logType: SeedLogType;
 };
 
 export type SeedExerciseGroup = {
@@ -42,20 +43,20 @@ export const workoutSeedData: SeedRoutine[] = [
                 targetType: 'reps',
                 targetValue: 15,
                 note: 'cada lado',
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Twist sin peso',
                 targetType: 'reps',
                 targetValue: 15,
                 note: 'cada lado',
-                tracksWeight: false
+                logType: 'reps'
               },
               {
                 name: 'Plancha ventral',
                 targetType: 'time',
                 targetValue: 30,
-                tracksWeight: false
+                logType: 'time'
               }
             ]
           }
@@ -72,13 +73,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Pecho plano con barra',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Sentadilla con KB',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           },
@@ -90,13 +91,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Pecho inclinado mancuernas',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Fondo tríceps en banco',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: false
+                logType: 'reps'
               }
             ]
           },
@@ -108,13 +109,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Apertura en máquina',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Silla de cuádriceps',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           }
@@ -137,19 +138,19 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Bisagra sentado con apoyo de manos',
                 targetType: 'reps',
                 targetValue: 15,
-                tracksWeight: false
+                logType: 'reps'
               },
               {
                 name: 'Bisagra completa',
                 targetType: 'reps',
                 targetValue: 15,
-                tracksWeight: false
+                logType: 'reps'
               },
               {
                 name: 'Cortos',
                 targetType: 'time',
                 targetValue: 30,
-                tracksWeight: false
+                logType: 'time'
               }
             ]
           }
@@ -166,13 +167,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Remo bajo',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Silla flexora',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           },
@@ -184,13 +185,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Percha dorsal',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Aductores en máquina',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           },
@@ -202,13 +203,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Remo medio en máquina',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Bíceps polea baja barra',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           }
@@ -231,20 +232,20 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Lumbares en máquina',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Plancha lateral',
                 targetType: 'time',
                 targetValue: 20,
                 note: 'cada lado',
-                tracksWeight: false
+                logType: 'time'
               },
               {
                 name: 'Inferiores',
                 targetType: 'reps',
                 targetValue: 20,
-                tracksWeight: false
+                logType: 'reps'
               }
             ]
           }
@@ -261,13 +262,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Estocada estática mancuernas',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Press hombro barra',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           },
@@ -279,13 +280,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Prensa con pies en V',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Vuelo frontal mancuernas',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           },
@@ -297,13 +298,13 @@ export const workoutSeedData: SeedRoutine[] = [
                 name: 'Bíceps mancuernas',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               },
               {
                 name: 'Tríceps polea alta cuerda',
                 targetType: 'reps',
                 targetValue: 10,
-                tracksWeight: true
+                logType: 'weight'
               }
             ]
           }

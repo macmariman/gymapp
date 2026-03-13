@@ -1,4 +1,4 @@
-import type { AttendanceMonth, ExerciseView } from '@/lib/workouts/types';
+import type { AttendanceMonth, ExerciseLogType, ExerciseView } from '@/lib/workouts/types';
 
 const weightFormatter = new Intl.NumberFormat('es-UY', {
   minimumFractionDigits: 0,
@@ -6,7 +6,7 @@ const weightFormatter = new Intl.NumberFormat('es-UY', {
 });
 
 export function formatTarget(exercise: Pick<ExerciseView, 'targetType' | 'targetValue' | 'note'>) {
-  const unit = exercise.targetType === 'time' ? 's' : 'reps';
+  const unit = exercise.targetType === 'time' ? 's' : exercise.targetType === 'weight' ? 'kg' : 'reps';
   return `${exercise.targetValue} ${unit}${exercise.note ? ` ${exercise.note}` : ''}`;
 }
 
@@ -15,8 +15,34 @@ export function formatWeight(weight: string | number) {
   return `${weightFormatter.format(parsedWeight)} kg`;
 }
 
+export function formatReps(value: string | number) {
+  const parsedValue = typeof value === 'string' ? Number(value) : value;
+  return `${weightFormatter.format(parsedValue)} reps`;
+}
+
+export function formatDuration(seconds: string | number) {
+  const parsedValue = typeof seconds === 'string' ? Number(seconds) : seconds;
+  return `${weightFormatter.format(parsedValue)} s`;
+}
+
+export function formatLoggedValue(logType: ExerciseLogType, value: string | number) {
+  if (logType === 'weight') {
+    return formatWeight(value);
+  }
+
+  if (logType === 'time') {
+    return formatDuration(value);
+  }
+
+  return formatReps(value);
+}
+
 export function formatWeightSummary(weights: Array<string | number>) {
   return weights.map((weight) => formatWeight(weight)).join(' / ');
+}
+
+export function formatLogSummary(logType: Exclude<ExerciseLogType, 'none'>, values: Array<string | number>) {
+  return values.map((value) => formatLoggedValue(logType, value)).join(' / ');
 }
 
 export function formatSessionDate(value: string) {

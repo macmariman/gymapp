@@ -1,7 +1,8 @@
 import 'server-only';
 
+import type { ExerciseLogType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { formatWeightSummary } from '@/lib/workouts/formatting';
+import { formatLogSummary } from '@/lib/workouts/formatting';
 import type {
   AttendanceMonth,
   ExerciseGroupView,
@@ -19,15 +20,19 @@ function getMonthBounds(date: Date) {
   return { start, end };
 }
 
-async function getLatestWeightSummaries(exerciseIds: string[]) {
-  if (exerciseIds.length === 0) {
-    return new Map<string, string>();
+async function getLatestLogData(exercises: Array<{ id: string; logType: ExerciseLogType }>) {
+  if (exercises.length === 0) {
+    return new Map<string, { summary: string; values: string[] }>();
   }
+
+  const logTypeByExerciseId = new Map(
+    exercises.map((exercise) => [exercise.id, exercise.logType] as const)
+  );
 
   const setLogs = await prisma.exerciseSetLog.findMany({
     where: {
       exerciseId: {
-        in: exerciseIds
+        in: exercises.map((exercise) => exercise.id)
       }
     },
     orderBy: [
@@ -43,32 +48,57 @@ async function getLatestWeightSummaries(exerciseIds: string[]) {
     select: {
       exerciseId: true,
       sessionId: true,
-      weightKg: true
+      weightKg: true,
+      repsCount: true,
+      durationSeconds: true
     }
   });
 
   const sessionByExercise = new Map<string, string>();
-  const weightsByExercise = new Map<string, string[]>();
+  const valuesByExercise = new Map<string, string[]>();
 
   for (const setLog of setLogs) {
     const savedSessionId = sessionByExercise.get(setLog.exerciseId);
 
     if (!savedSessionId) {
       sessionByExercise.set(setLog.exerciseId, setLog.sessionId);
-      weightsByExercise.set(setLog.exerciseId, []);
+      valuesByExercise.set(setLog.exerciseId, []);
     }
 
-    if (sessionByExercise.get(setLog.exerciseId) !== setLog.sessionId || !setLog.weightKg) {
+    if (sessionByExercise.get(setLog.exerciseId) !== setLog.sessionId) {
       continue;
     }
 
-    weightsByExercise.get(setLog.exerciseId)?.push(setLog.weightKg.toString());
+    const logType = logTypeByExerciseId.get(setLog.exerciseId);
+
+    if (!logType || logType === 'none') {
+      continue;
+    }
+
+    const value =
+      logType === 'weight'
+        ? setLog.weightKg?.toString()
+        : logType === 'time'
+          ? setLog.durationSeconds?.toString()
+          : setLog.repsCount?.toString();
+
+    if (!value) {
+      continue;
+    }
+
+    valuesByExercise.get(setLog.exerciseId)?.push(value);
   }
 
   return new Map(
-    [...weightsByExercise.entries()].map(([exerciseId, weights]) => [
+    [...valuesByExercise.entries()].map(([exerciseId, values]) => [
       exerciseId,
-      formatWeightSummary(weights)
+      {
+        summary: formatLogSummary(
+          logTypeByExerciseId.get(exerciseId) as Exclude<ExerciseLogType, 'none'>,
+          values
+        ),
+        values
+      }
     ])
   );
 }
@@ -139,15 +169,20 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
     }
   });
 
-  const exerciseIds = routines.flatMap((routine) =>
+  const exercises = routines.flatMap((routine) =>
     routine.sections.flatMap((section) =>
       section.groups.flatMap((group) =>
-        group.exercises.filter((exercise) => exercise.tracksWeight).map((exercise) => exercise.id)
+        group.exercises
+          .filter((exercise) => exercise.logType !== 'none')
+          .map((exercise) => ({
+            id: exercise.id,
+            logType: exercise.logType
+          }))
       )
     )
   );
 
-  const latestWeights = await getLatestWeightSummaries(exerciseIds);
+  const latestLogs = await getLatestLogData(exercises);
 
   return routines.map((routine) => ({
     id: routine.id,
@@ -169,8 +204,9 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
             targetType: exercise.targetType,
             targetValue: exercise.targetValue,
             note: exercise.note,
-            tracksWeight: exercise.tracksWeight,
-            lastWeightSummary: latestWeights.get(exercise.id) ?? null
+            logType: exercise.logType,
+            lastLogSummary: latestLogs.get(exercise.id)?.summary ?? null,
+            lastLogValues: latestLogs.get(exercise.id)?.values ?? []
           }))
         })
       )
@@ -223,7 +259,8 @@ export async function getWorkoutSessionHistory(): Promise<SessionHistoryEntry[]>
           exercise: {
             select: {
               id: true,
-              name: true
+              name: true,
+              logType: true
             }
           }
         }
@@ -235,26 +272,30 @@ export async function getWorkoutSessionHistory(): Promise<SessionHistoryEntry[]>
     const exerciseMap = new Map<string, SessionExerciseSummary>();
 
     for (const setLog of session.setLogs) {
-      if (!setLog.weightKg) {
+      const value =
+        setLog.weightKg?.toString() ??
+        setLog.repsCount?.toString() ??
+        setLog.durationSeconds?.toString();
+
+      if (!value || setLog.exercise.logType === 'none') {
         continue;
       }
 
       const savedExercise = exerciseMap.get(setLog.exerciseId);
-      const weightLabel = setLog.weightKg.toString();
 
       if (!savedExercise) {
         exerciseMap.set(setLog.exerciseId, {
           exerciseId: setLog.exerciseId,
           exerciseName: setLog.exercise.name,
-          weightSummary: formatWeightSummary([weightLabel])
+          valueSummary: formatLogSummary(setLog.exercise.logType, [value])
         });
         continue;
       }
 
-      const existingWeights = savedExercise.weightSummary.split(' / ').map((value) => value.replace(' kg', ''));
+      const existingValues = savedExercise.valueSummary.split(' / ').map((entry) => entry.split(' ')[0]);
       exerciseMap.set(setLog.exerciseId, {
         ...savedExercise,
-        weightSummary: formatWeightSummary([...existingWeights, weightLabel])
+        valueSummary: formatLogSummary(setLog.exercise.logType, [...existingValues, value])
       });
     }
 

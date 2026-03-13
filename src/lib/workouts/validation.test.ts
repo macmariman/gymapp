@@ -1,7 +1,7 @@
 import { parseCreateWorkoutSessionInput } from '@/lib/workouts/validation';
 
 describe('parseCreateWorkoutSessionInput', () => {
-  it('normalizes valid weights and trims the note', () => {
+  it('normalizes valid logged values and trims the note', () => {
     const result = parseCreateWorkoutSessionInput({
       routineId: 'routine-1',
       note: '  Buen entrenamiento  ',
@@ -9,7 +9,7 @@ describe('parseCreateWorkoutSessionInput', () => {
         {
           exerciseId: 'exercise-1',
           setNumber: 1,
-          weightKg: '62.5'
+          value: '62.5'
         }
       ]
     });
@@ -21,7 +21,7 @@ describe('parseCreateWorkoutSessionInput', () => {
         {
           exerciseId: 'exercise-1',
           setNumber: 1,
-          weightKg: '62.50'
+          value: '62.5'
         }
       ]
     });
@@ -35,12 +35,12 @@ describe('parseCreateWorkoutSessionInput', () => {
           {
             exerciseId: 'exercise-1',
             setNumber: 1,
-            weightKg: '60'
+            value: '60'
           },
           {
             exerciseId: 'exercise-1',
             setNumber: 1,
-            weightKg: '62.5'
+            value: '62.5'
           }
         ]
       })

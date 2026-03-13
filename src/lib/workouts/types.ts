@@ -1,4 +1,5 @@
-export type ExerciseTargetType = 'reps' | 'time';
+export type ExerciseMetricType = 'reps' | 'weight' | 'time';
+export type ExerciseLogType = 'none' | 'reps' | 'weight' | 'time';
 
 export type RoutineSummary = {
   id: string;
@@ -10,11 +11,12 @@ export type RoutineSummary = {
 export type ExerciseView = {
   id: string;
   name: string;
-  targetType: ExerciseTargetType;
+  targetType: ExerciseMetricType;
   targetValue: number;
   note?: string | null;
-  tracksWeight: boolean;
-  lastWeightSummary: string | null;
+  logType: ExerciseLogType;
+  lastLogSummary: string | null;
+  lastLogValues: string[];
 };
 
 export type ExerciseGroupView = {
@@ -48,7 +50,7 @@ export type AttendanceMonth = {
 export type SessionExerciseSummary = {
   exerciseId: string;
   exerciseName: string;
-  weightSummary: string;
+  valueSummary: string;
 };
 
 export type SessionHistoryEntry = {
@@ -66,7 +68,7 @@ export type CreateWorkoutSessionInput = {
   setLogs: {
     exerciseId: string;
     setNumber: number;
-    weightKg: string;
+    value: string;
   }[];
 };
 
