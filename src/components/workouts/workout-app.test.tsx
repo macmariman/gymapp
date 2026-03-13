@@ -135,6 +135,35 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue("62.5")
   })
 
+  it("suggests the next routine not completed in the current week", () => {
+    const now = new Date()
+    const thisWeekSessionDate = new Date(now)
+    const day = thisWeekSessionDate.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+
+    thisWeekSessionDate.setDate(thisWeekSessionDate.getDate() + diff)
+    thisWeekSessionDate.setHours(12, 0, 0, 0)
+
+    render(
+      <WorkoutApp
+        {...workoutPageData}
+        history={[
+          {
+            id: "session-1",
+            routineId: "routine-1",
+            routineName: "Rutina 1",
+            performedAt: thisWeekSessionDate.toISOString(),
+            note: null,
+            exercises: [],
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getAllByText("Rutina 2").length).toBeGreaterThan(0)
+    expect(screen.getByLabelText("Remo con barra serie 1")).toHaveValue("50")
+  })
+
   it("submits a session with weights and shows success feedback", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)

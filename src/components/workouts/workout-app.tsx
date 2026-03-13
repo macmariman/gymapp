@@ -114,6 +114,38 @@ function buildInitialValues(routine: RoutineWithStructure | undefined) {
   }, {})
 }
 
+function getWeekStart(date: Date) {
+  const weekStart = new Date(date)
+  const day = weekStart.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+
+  weekStart.setHours(0, 0, 0, 0)
+  weekStart.setDate(weekStart.getDate() + diff)
+
+  return weekStart
+}
+
+function getSuggestedRoutineId(
+  routines: RoutineSummary[],
+  history: WorkoutPageData["history"]
+) {
+  if (routines.length === 0) {
+    return ""
+  }
+
+  const weekStart = getWeekStart(new Date())
+  const completedRoutineIds = new Set(
+    history
+      .filter((entry) => new Date(entry.performedAt) >= weekStart)
+      .map((entry) => entry.routineId)
+  )
+
+  return (
+    routines.find((routine) => !completedRoutineIds.has(routine.id))?.id ??
+    routines[0].id
+  )
+}
+
 function isExerciseLoggable(logType: ExerciseLogType) {
   return logType !== "none"
 }
@@ -690,8 +722,8 @@ export function WorkoutApp({
 }: WorkoutPageData) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [selectedRoutineId, setSelectedRoutineId] = useState(
-    routines[0]?.id ?? ""
+  const [selectedRoutineId, setSelectedRoutineId] = useState(() =>
+    getSuggestedRoutineId(routines, history)
   )
   const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
   const [note, setNote] = useState("")
@@ -842,18 +874,43 @@ export function WorkoutApp({
         />
       ) : null}
 
-      <div className="mb-6 space-y-2">
-        <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">
-          Gym App
+      <section className="relative mb-6 overflow-hidden rounded-[32px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(240,247,244,0.92))] px-5 py-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.28)] md:px-7 md:py-7">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_72%)]" />
+        <div className="relative">
+          <div className="mb-3 inline-flex items-center rounded-full border border-emerald-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+            Gym App
+          </div>
+          <div className="max-w-3xl space-y-3">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+              Tu entrenamiento de hoy
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
+              Elegí la rutina, completá tus series y seguí tu constancia mes a
+              mes.
+            </p>
+          </div>
+          <div className="mt-5 flex items-start justify-between gap-3">
+            <div className="min-w-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Rutina activa
+              </div>
+              <div className="mt-1 truncate text-sm font-semibold text-slate-950">
+                {selectedRoutine?.name ?? "Sin rutina"}
+              </div>
+            </div>
+            <div className="shrink-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-right shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Días entrenados
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-950">
+                {attendance.daysWithSessions.length === 1
+                  ? "1 día"
+                  : `${attendance.daysWithSessions.length} días`}
+              </div>
+            </div>
+          </div>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-          Tu rutina y tus sesiones en un solo lugar.
-        </h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Elegís una rutina, registrás los pesos que hiciste y ves tu asistencia
-          real del mes.
-        </p>
-      </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <div className="grid gap-4">
