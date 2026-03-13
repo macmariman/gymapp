@@ -148,9 +148,9 @@ export const workoutSeedData: SeedRoutine[] = [
               },
               {
                 name: 'Cortos',
-                targetType: 'time',
-                targetValue: 30,
-                logType: 'time'
+                targetType: 'reps',
+                targetValue: 15,
+                logType: 'reps'
               }
             ]
           }
