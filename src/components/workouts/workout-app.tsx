@@ -869,7 +869,7 @@ export function WorkoutApp({
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
+    <main className="mx-auto max-w-6xl px-2 py-6 md:px-6 md:py-8">
       {status.type !== "idle" ? (
         <FloatingToast
           onClose={() => setStatus({ type: "idle", message: "" })}
