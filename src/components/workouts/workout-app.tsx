@@ -404,6 +404,10 @@ function shouldHideGroupName(group: ExerciseGroupView) {
   return group.name === group.sectionName
 }
 
+function getLoggableExercises(group: ExerciseGroupView) {
+  return group.exercises.filter((exercise) => isExerciseLoggable(exercise.logType))
+}
+
 function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
   const [openEntryId, setOpenEntryId] = useState<string | null>(
     history[0]?.id ?? null
@@ -513,9 +517,7 @@ function SessionPanel({
   panelRef: React.RefObject<HTMLDivElement | null>
 }) {
   const groupsWithTracking = routine.sections.flatMap((section) =>
-    section.groups.filter((group) =>
-      group.exercises.some((exercise) => isExerciseLoggable(exercise.logType))
-    )
+    section.groups.filter((group) => getLoggableExercises(group).length > 0)
   )
   const hasWeightedGroups = groupsWithTracking.length > 0
 
@@ -562,10 +564,8 @@ function SessionPanel({
             </div>
 
             {routine.sections.map((section) => {
-              const sectionGroups = section.groups.filter((group) =>
-                group.exercises.some((exercise) =>
-                  isExerciseLoggable(exercise.logType)
-                )
+              const sectionGroups = section.groups.filter(
+                (group) => getLoggableExercises(group).length > 0
               )
 
               if (sectionGroups.length === 0) {
@@ -577,107 +577,107 @@ function SessionPanel({
                   <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">
                     {section.name}
                   </div>
-                  {sectionGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          {!shouldHideGroupName(group) ? (
-                            <div className="text-sm font-semibold text-slate-950">
-                              {group.name}
-                            </div>
-                          ) : null}
-                          <div className="text-xs text-slate-500">
-                            {group.series} series
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="rounded-full border-emerald-200 bg-white text-emerald-700"
-                        >
-                          {group.exercises.length} ejercicio
-                          {group.exercises.length === 1 ? "" : "s"}
-                        </Badge>
-                      </div>
+                  {sectionGroups.map((group) => {
+                    const loggableExercises = getLoggableExercises(group)
 
-                      {group.exercises.map((exercise) => (
-                        <div
-                          key={exercise.id}
-                          className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
-                        >
-                          <div className="space-y-1">
-                            <div className="text-sm font-semibold text-slate-950">
-                              {exercise.name}
-                            </div>
+                    return (
+                      <div
+                        key={group.id}
+                        className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            {!shouldHideGroupName(group) ? (
+                              <div className="text-sm font-semibold text-slate-950">
+                                {group.name}
+                              </div>
+                            ) : null}
                             <div className="text-xs text-slate-500">
-                              {formatTarget(exercise)}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-600">
-                              <Clock3 className="size-3.5 text-slate-400" />
-                              {getStatusLabel(
-                                exercise.logType,
-                                exercise.lastLogSummary
-                              )}
+                              {group.series} series
                             </div>
                           </div>
-
-                          {isExerciseLoggable(exercise.logType) ? (
-                            <div className="space-y-2">
-                              {Array.from(
-                                { length: group.series },
-                                (_, index) => {
-                                  const setNumber = index + 1
-                                  const inputKey = buildWeightInputKey(
-                                    exercise.id,
-                                    setNumber
-                                  )
-
-                                  return (
-                                    <label
-                                      key={inputKey}
-                                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                                    >
-                                      <span className="text-sm font-medium text-slate-700">
-                                        Serie {setNumber}
-                                      </span>
-                                      <input
-                                        aria-label={`${exercise.name} serie ${setNumber}`}
-                                        className="h-9 w-20 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                                        inputMode={getInputMode(
-                                          exercise.logType
-                                        )}
-                                        onFocus={(event) => {
-                                          if (event.target.value.length > 0) {
-                                            event.target.select()
-                                          }
-                                        }}
-                                        onChange={(event) =>
-                                          onValueChange(
-                                            inputKey,
-                                            event.target.value
-                                          )
-                                        }
-                                        placeholder={getInputPlaceholder(
-                                          exercise.logType
-                                        )}
-                                        value={values[inputKey] ?? ""}
-                                      />
-                                    </label>
-                                  )
-                                }
-                              )}
-                            </div>
-                          ) : (
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                              Solo referencia: {formatTarget(exercise)}
-                            </div>
-                          )}
+                          <Badge
+                            variant="outline"
+                            className="rounded-full border-emerald-200 bg-white text-emerald-700"
+                          >
+                            {loggableExercises.length} ejercicio
+                            {loggableExercises.length === 1 ? "" : "s"}
+                          </Badge>
                         </div>
-                      ))}
-                    </div>
-                  ))}
+
+                        <div className="space-y-3">
+                          {Array.from({ length: group.series }, (_, index) => {
+                            const setNumber = index + 1
+
+                            return (
+                              <div
+                                key={`${group.id}-set-${setNumber}`}
+                                className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+                              >
+                                <div className="text-sm font-semibold text-slate-950">
+                                  Serie {setNumber}
+                                </div>
+
+                                <div className="space-y-3">
+                                  {loggableExercises.map((exercise) => {
+                                    const inputKey = buildWeightInputKey(
+                                      exercise.id,
+                                      setNumber
+                                    )
+
+                                    return (
+                                      <label
+                                        key={inputKey}
+                                        className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                                      >
+                                        <span className="space-y-1">
+                                          <span className="block text-sm font-medium text-slate-950">
+                                            {exercise.name}
+                                          </span>
+                                          <span className="block text-xs text-slate-500">
+                                            {formatTarget(exercise)}
+                                          </span>
+                                          <span className="flex items-center gap-2 text-xs text-slate-600">
+                                            <Clock3 className="size-3.5 text-slate-400" />
+                                            {getStatusLabel(
+                                              exercise.logType,
+                                              exercise.lastLogSummary
+                                            )}
+                                          </span>
+                                        </span>
+                                        <input
+                                          aria-label={`${exercise.name} serie ${setNumber}`}
+                                          className="h-9 w-20 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                                          inputMode={getInputMode(
+                                            exercise.logType
+                                          )}
+                                          onFocus={(event) => {
+                                            if (event.target.value.length > 0) {
+                                              event.target.select()
+                                            }
+                                          }}
+                                          onChange={(event) =>
+                                            onValueChange(
+                                              inputKey,
+                                              event.target.value
+                                            )
+                                          }
+                                          placeholder={getInputPlaceholder(
+                                            exercise.logType
+                                          )}
+                                          value={values[inputKey] ?? ""}
+                                        />
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })}

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import type { WorkoutPageData } from "@/lib/workouts/types"
@@ -123,16 +123,27 @@ describe("WorkoutApp", () => {
     jest.resetAllMocks()
   })
 
-  it("renders block series and exercise targets in the right level", () => {
+  it("renders block inputs grouped by series inside each block", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     expect(screen.getAllByText("Bloque 1").length).toBeGreaterThan(0)
     expect(screen.getAllByText("3 series").length).toBeGreaterThan(0)
     expect(screen.getAllByText("10 reps").length).toBeGreaterThan(0)
-    expect(screen.getByText("Fondo tríceps en banco")).toBeInTheDocument()
     expect(screen.getByLabelText("Fondo tríceps en banco serie 1")).toBeInTheDocument()
     expect(screen.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
     expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue("62.5")
+
+    const firstSeriesCard = screen
+      .getByText("Serie 1")
+      .closest("div.rounded-2xl.border.border-slate-200.bg-white.p-4")
+
+    expect(firstSeriesCard).not.toBeNull()
+
+    const firstSeriesScope = within(firstSeriesCard as HTMLElement)
+    expect(firstSeriesScope.getByText("Pecho plano con barra")).toBeInTheDocument()
+    expect(firstSeriesScope.getByText("Fondo tríceps en banco")).toBeInTheDocument()
+    expect(firstSeriesScope.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
+    expect(firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")).toHaveValue("")
   })
 
   it("suggests the next routine not completed in the current week", () => {
