@@ -146,7 +146,7 @@ describe("WorkoutApp", () => {
 
     expect(screen.getAllByText("Bloque 1").length).toBeGreaterThan(0)
     expect(screen.getAllByText("3 series").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("10 reps").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("10 rep").length).toBeGreaterThan(0)
     expect(screen.getByLabelText("Fondo tríceps en banco serie 1")).toBeInTheDocument()
     expect(screen.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
     expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue("62.5")

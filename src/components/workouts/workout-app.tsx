@@ -281,7 +281,7 @@ function getInputPlaceholder(logType: ExerciseLogType) {
     return "s"
   }
 
-  return "reps"
+  return "rep"
 }
 
 function getInputMode(logType: ExerciseLogType) {
@@ -502,6 +502,19 @@ function shouldHideGroupName(group: ExerciseGroupView) {
   return group.name === group.sectionName
 }
 
+function splitValueSummary(valueSummary: string) {
+  const match = valueSummary.match(/^(.*)\s(kg|rep|s)$/)
+
+  if (!match) {
+    return { values: valueSummary, unit: "" }
+  }
+
+  return {
+    values: match[1],
+    unit: match[2],
+  }
+}
+
 function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
   const [openEntryId, setOpenEntryId] = useState<string | null>(
     history[0]?.id ?? null
@@ -565,19 +578,26 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                           Sin registros guardados.
                         </div>
                       ) : (
-                        entry.exercises.map((exercise) => (
-                          <div
-                            key={`${entry.id}-${exercise.exerciseId}`}
-                            className="flex items-center justify-between gap-3 py-1.5"
-                          >
-                            <div className="text-sm text-muted-foreground">
-                              {exercise.exerciseName}
+                        entry.exercises.map((exercise) => {
+                          const { values, unit } = splitValueSummary(
+                            exercise.valueSummary
+                          )
+
+                          return (
+                            <div
+                              key={`${entry.id}-${exercise.exerciseId}`}
+                              className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-1.5"
+                            >
+                              <div className="min-w-0 text-sm text-muted-foreground">
+                                {exercise.exerciseName}
+                              </div>
+                              <div className="grid grid-cols-[auto_1.6rem] items-baseline gap-1 whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
+                                <span className="text-right">{values}</span>
+                                <span className="text-right">{unit}</span>
+                              </div>
                             </div>
-                            <div className="text-sm font-bold text-foreground">
-                              {exercise.valueSummary}
-                            </div>
-                          </div>
-                        ))
+                          )
+                        })
                       )}
                     </div>
                   </div>
@@ -1153,7 +1173,7 @@ export function WorkoutApp({
           </div>
           <div className="max-w-3xl">
             <h1 className="text-2xl font-black uppercase tracking-tight text-foreground md:text-3xl">
-              Tu entrenamiento de hoy
+              Entrenamiento de hoy
             </h1>
           </div>
           <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-2">

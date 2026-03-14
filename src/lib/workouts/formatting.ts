@@ -6,7 +6,7 @@ const weightFormatter = new Intl.NumberFormat('es-UY', {
 });
 
 export function formatTarget(exercise: Pick<ExerciseView, 'targetType' | 'targetValue' | 'note'>) {
-  const unit = exercise.targetType === 'time' ? 's' : exercise.targetType === 'weight' ? 'kg' : 'reps';
+  const unit = exercise.targetType === 'time' ? 's' : exercise.targetType === 'weight' ? 'kg' : 'rep';
   return `${exercise.targetValue} ${unit}${exercise.note ? ` ${exercise.note}` : ''}`;
 }
 
@@ -17,7 +17,7 @@ export function formatWeight(weight: string | number) {
 
 export function formatReps(value: string | number) {
   const parsedValue = typeof value === 'string' ? Number(value) : value;
-  return `${weightFormatter.format(parsedValue)} reps`;
+  return `${weightFormatter.format(parsedValue)} rep`;
 }
 
 export function formatDuration(seconds: string | number) {
@@ -42,7 +42,7 @@ export function formatWeightSummary(weights: Array<string | number>) {
 }
 
 export function formatLogSummary(logType: Exclude<ExerciseLogType, 'none'>, values: Array<string | number>) {
-  const unit = logType === 'weight' ? 'kg' : logType === 'time' ? 's' : 'reps';
+  const unit = logType === 'weight' ? 'kg' : logType === 'time' ? 's' : 'rep';
   const formattedValues = values.map((value) => {
     const parsed = typeof value === 'string' ? Number(value) : value;
     return weightFormatter.format(parsed);

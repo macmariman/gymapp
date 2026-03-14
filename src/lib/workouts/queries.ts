@@ -292,7 +292,7 @@ export async function getWorkoutSessionHistory(): Promise<SessionHistoryEntry[]>
         continue;
       }
 
-      const existingValues = savedExercise.valueSummary.replace(/ (kg|reps|s)$/, '').split(' · ');
+      const existingValues = savedExercise.valueSummary.replace(/ (kg|rep|s)$/, '').split(' · ');
       exerciseMap.set(setLog.exerciseId, {
         ...savedExercise,
         valueSummary: formatLogSummary(setLog.exercise.logType, [...existingValues, value])
