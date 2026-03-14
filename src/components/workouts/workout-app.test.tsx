@@ -151,13 +151,13 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
     expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue("62.5")
 
-    const firstSeriesCard = screen
+    const firstSeriesContainer = screen
       .getAllByText("Serie 1")[0]
-      .closest("div.rounded-2xl.border.border-slate-200.bg-white.p-4")
+      .closest("div.space-y-1")
 
-    expect(firstSeriesCard).not.toBeNull()
+    expect(firstSeriesContainer).not.toBeNull()
 
-    const firstSeriesScope = within(firstSeriesCard as HTMLElement)
+    const firstSeriesScope = within(firstSeriesContainer as HTMLElement)
     expect(firstSeriesScope.getByText("Pecho plano con barra")).toBeInTheDocument()
     expect(firstSeriesScope.getByText("Fondo tríceps en banco")).toBeInTheDocument()
     expect(firstSeriesScope.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
@@ -222,7 +222,7 @@ describe("WorkoutApp", () => {
     await user.click(screen.getAllByRole("button", { name: "Intercambiar" })[0])
 
     expect(
-      screen.getByText("Intercambiar ejercicio de hoy")
+      screen.getByText("Intercambiar ejercicio")
     ).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: /pecho plano con barra/i })
@@ -234,21 +234,23 @@ describe("WorkoutApp", () => {
 
     expect(screen.getAllByText("Aperturas con mancuernas").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Pecho plano con barra").length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/En lugar de: Pecho plano con barra/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Swap").length).toBeGreaterThan(0)
+
+    // After swap, "Pecho plano" moves to Bloque 2 (4 series), so serie 4 input exists
     expect(
-      screen.getAllByText(/En lugar de: Aperturas con mancuernas/i).length
-    ).toBeGreaterThan(0)
+      screen.getByLabelText("Pecho plano con barra serie 4")
+    ).toBeInTheDocument()
 
     await user.click(
       screen.getAllByRole("button", { name: "Deshacer intercambio" })[0]
     )
 
+    // After undo, "Pecho plano" is back in Bloque 1 (3 series), so serie 4 input is gone
     expect(
-      screen.queryByText(/En lugar de: Pecho plano con barra/i)
+      screen.queryByLabelText("Pecho plano con barra serie 4")
     ).not.toBeInTheDocument()
-    expect(
-      screen.queryByText(/En lugar de: Aperturas con mancuernas/i)
-    ).not.toBeInTheDocument()
+    // And swap badges are cleared
+    expect(screen.queryAllByText("Swap").length).toBe(0)
   })
 
   it("submits swapped exercises with their destination slot ids", async () => {

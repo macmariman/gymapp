@@ -42,7 +42,12 @@ export function formatWeightSummary(weights: Array<string | number>) {
 }
 
 export function formatLogSummary(logType: Exclude<ExerciseLogType, 'none'>, values: Array<string | number>) {
-  return values.map((value) => formatLoggedValue(logType, value)).join(' / ');
+  const unit = logType === 'weight' ? 'kg' : logType === 'time' ? 's' : 'reps';
+  const formattedValues = values.map((value) => {
+    const parsed = typeof value === 'string' ? Number(value) : value;
+    return weightFormatter.format(parsed);
+  });
+  return `${formattedValues.join(' · ')} ${unit}`;
 }
 
 export function formatSessionDate(value: string) {

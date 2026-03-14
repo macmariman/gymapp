@@ -9,8 +9,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock3,
-  Dumbbell,
   NotebookPen,
   X,
 } from "lucide-react"
@@ -46,7 +44,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -90,10 +87,10 @@ function FloatingToast({
     <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
       <div
         className={cn(
-          "pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] backdrop-blur",
+          "pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-sm",
           status.type === "error"
-            ? "border-red-200 bg-red-50/95 text-red-700"
-            : "border-emerald-200 bg-emerald-50/95 text-emerald-700"
+            ? "border-red-200 bg-red-50 text-red-700"
+            : "border-border bg-card text-foreground"
         )}
         role="status"
       >
@@ -291,26 +288,6 @@ function getInputMode(logType: ExerciseLogType) {
   return logType === "weight" ? "decimal" : "numeric"
 }
 
-function getStatusLabel(logType: ExerciseLogType, summary: string | null) {
-  if (summary) {
-    return `Último: ${summary}`
-  }
-
-  if (logType === "time") {
-    return "Sin tiempo registrado todavía"
-  }
-
-  if (logType === "reps") {
-    return "Sin repeticiones registradas todavía"
-  }
-
-  if (logType === "weight") {
-    return "Sin peso registrado todavía"
-  }
-
-  return "Sin registro todavía"
-}
-
 function RoutineList({
   routines,
   selectedRoutineId,
@@ -321,34 +298,30 @@ function RoutineList({
   onSelect: (routineId: string) => void
 }) {
   return (
-    <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
-      <CardHeader className="px-5">
-        <CardTitle className="text-xl text-slate-950">Rutinas</CardTitle>
-        <CardDescription>Elegí la rutina de hoy.</CardDescription>
+    <Card>
+      <CardHeader className="border-b-2 border-border">
+        <CardTitle className="text-lg uppercase tracking-wide">Rutinas</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 px-5">
+      <CardContent className="space-y-2 pt-3">
         {routines.map((routine) => (
           <button
             key={routine.id}
             className={cn(
-              "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition",
+              "flex w-full items-center justify-between rounded-md border-2 px-3 py-2 text-left transition",
               routine.id === selectedRoutineId
-                ? "border-emerald-300 bg-emerald-50"
-                : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
+                ? "border-accent bg-accent/10 shadow-brutal-sm"
+                : "border-border bg-card hover:border-foreground"
             )}
             onClick={() => onSelect(routine.id)}
             type="button"
           >
-            <div className="space-y-1">
-              <div className="text-sm font-semibold text-slate-950">
+            <div className="space-y-0.5">
+              <div className="text-sm font-bold text-foreground">
                 {routine.name}
               </div>
-              <div className="text-xs text-slate-500">{routine.summary}</div>
-              <div className="text-xs text-slate-600">
-                {formatRelativeSessionDate(routine.lastSessionAt)}
-              </div>
+              <div className="text-xs text-muted-foreground">{routine.summary}</div>
             </div>
-            <ChevronRight className="size-4 text-slate-400" />
+            <ChevronRight className="size-5 text-foreground" />
           </button>
         ))}
       </CardContent>
@@ -396,15 +369,15 @@ function AttendanceCard({
 
   return (
     <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-      <Card className="gap-0 rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
-        <CardHeader className="px-5 pb-0">
+      <Card className="gap-0 rounded-xl border-border bg-card">
+        <CardHeader className="pb-0">
           <CollapsibleTrigger asChild>
             <button
               className="flex w-full items-start justify-between gap-4 text-left"
               type="button"
             >
               <div className="space-y-1">
-                <CardTitle className="text-xl text-slate-950">
+                <CardTitle className="text-lg text-foreground">
                   Asistencia
                 </CardTitle>
                 <CardDescription>
@@ -413,7 +386,7 @@ function AttendanceCard({
               </div>
               <ChevronDown
                 className={cn(
-                  "mt-1 size-5 shrink-0 text-slate-500 transition-transform duration-200",
+                  "mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200",
                   isOpen ? "rotate-0" : "-rotate-90"
                 )}
               />
@@ -421,12 +394,12 @@ function AttendanceCard({
           </CollapsibleTrigger>
         </CardHeader>
         <CollapsibleContent className="overflow-hidden">
-          <CardContent className="space-y-4 px-5 pt-4">
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <CardContent className="space-y-3 pt-3">
+            <div className="flex items-center justify-between border-b border-dashed border-border pb-3">
               <div className="flex items-center gap-3">
                 <button
                   aria-label="Mes anterior"
-                  className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:bg-muted"
                   onClick={() =>
                     setVisibleMonthDate(
                       (currentDate) =>
@@ -441,20 +414,20 @@ function AttendanceCard({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-slate-950">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-bold text-foreground">
                     {new Intl.DateTimeFormat("es-UY", {
                       month: "long",
                       year: "numeric",
                     }).format(visibleMonthDate)}
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-muted-foreground">
                     Asistencia del mes actual
                   </div>
                 </div>
                 <button
                   aria-label="Mes siguiente"
-                  className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={!canGoForward}
                   onClick={() =>
                     setVisibleMonthDate(
@@ -472,10 +445,10 @@ function AttendanceCard({
                 </button>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-semibold text-slate-950">
+                <div className="text-2xl font-semibold text-foreground">
                   {visibleAttendance.daysWithSessions.length}
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-muted-foreground">
                   {visibleAttendance.daysWithSessions.length === 1
                     ? "día entrenado"
                     : "días entrenados"}
@@ -483,28 +456,28 @@ function AttendanceCard({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="mb-3 grid grid-cols-7 gap-2">
+            <div className="pt-1">
+              <div className="mb-2 grid grid-cols-7 gap-1.5">
                 {weekDays.map((label) => (
                   <div
                     key={label}
-                    className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
+                    className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
                   >
                     {label}
                   </div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1.5">
                 {cells.map((cell, index) =>
                   cell.day ? (
                     <div
                       key={`${cell.day}-${index}`}
                       className={cn(
-                        "flex aspect-square items-center justify-center rounded-2xl text-sm font-semibold",
+                        "flex aspect-square items-center justify-center rounded-lg text-sm font-semibold",
                         cell.completed
-                          ? "bg-emerald-500 text-white"
-                          : "bg-slate-100 text-slate-500"
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-muted text-muted-foreground"
                       )}
                     >
                       {cell.day}
@@ -512,7 +485,7 @@ function AttendanceCard({
                   ) : (
                     <div
                       key={`empty-${index}`}
-                      className="aspect-square rounded-2xl bg-transparent"
+                      className="aspect-square rounded-lg bg-transparent"
                     />
                   )
                 )}
@@ -535,16 +508,16 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
   )
 
   return (
-    <Card className="rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]">
-      <CardHeader className="px-5">
-        <CardTitle className="text-xl text-slate-950">Historial</CardTitle>
+    <Card className="rounded-xl border-border bg-card">
+      <CardHeader className="border-b border-border">
+        <CardTitle className="text-lg text-foreground">Historial</CardTitle>
         <CardDescription>
           Sesiones guardadas. Solo lectura en esta versión.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3 px-5">
+      <CardContent className="space-y-0">
         {history.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+          <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
             Todavía no hay sesiones guardadas.
           </div>
         ) : (
@@ -556,51 +529,51 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
               }
               open={openEntryId === entry.id}
             >
-              <div className="rounded-2xl border border-slate-200 bg-slate-50">
+              <div className="border-b border-border last:border-b-0">
                 <CollapsibleTrigger asChild>
                   <button
-                    className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
                     type="button"
                   >
                     <div>
-                      <div className="text-sm font-semibold text-slate-950">
+                      <div className="text-sm font-semibold text-foreground">
                         {entry.routineName}
                       </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                         <CalendarDays className="size-3.5" />
                         {formatSessionDate(entry.performedAt)}
                       </div>
                     </div>
                     <ChevronDown
                       className={cn(
-                        "size-4 shrink-0 text-slate-400 transition-transform duration-200",
+                        "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
                         openEntryId === entry.id ? "rotate-180" : "rotate-0"
                       )}
                     />
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="overflow-hidden">
-                  <div className="space-y-3 border-t border-slate-200 px-4 py-4">
+                  <div className="space-y-2 border-t border-dashed border-border py-3">
                     {entry.note ? (
-                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600">
+                      <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                         {entry.note}
                       </div>
                     ) : null}
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {entry.exercises.length === 0 ? (
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-muted-foreground">
                           Sin registros guardados.
                         </div>
                       ) : (
                         entry.exercises.map((exercise) => (
                           <div
                             key={`${entry.id}-${exercise.exerciseId}`}
-                            className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-3"
+                            className="flex items-center justify-between gap-3 py-1.5"
                           >
-                            <div className="text-sm text-slate-700">
+                            <div className="text-sm text-muted-foreground">
                               {exercise.exerciseName}
                             </div>
-                            <div className="text-sm font-medium text-slate-950">
+                            <div className="text-sm font-bold text-foreground">
                               {exercise.valueSummary}
                             </div>
                           </div>
@@ -649,96 +622,57 @@ function ExerciseSwapDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[85vh] overflow-hidden rounded-[28px] border border-slate-200 bg-white p-0 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.45)] sm:max-w-2xl">
-        <DialogHeader className="space-y-3 border-b border-slate-200 px-6 py-5 text-left">
-          <DialogTitle className="text-xl text-slate-950">
-            Intercambiar ejercicio de hoy
+      <DialogContent aria-describedby={undefined} className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl">
+        <DialogHeader className="space-y-3 border-b-2 border-border px-4 py-4 text-left">
+          <DialogTitle className="text-lg font-bold uppercase tracking-wide">
+            Intercambiar ejercicio
           </DialogTitle>
-          <DialogDescription className="text-sm leading-6 text-slate-600">
-            Elegí otro ejercicio de esta rutina para intercambiar su posición
-            solo en la sesión de hoy.
-          </DialogDescription>
           {sourceExercise ? (
-            <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 px-4 py-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                Ejercicio origen
+            <div className="rounded border-2 border-accent bg-accent px-3 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-accent-foreground/70">
+                Origen
               </div>
-              <div className="mt-1 text-sm font-semibold text-slate-950">
+              <div className="text-sm font-bold text-accent-foreground">
                 {sourceExercise.name}
-              </div>
-              <div className="mt-1 text-xs text-slate-600">
-                {formatTarget(sourceExercise)}
               </div>
             </div>
           ) : null}
         </DialogHeader>
 
-        <div className="space-y-4 overflow-y-auto px-6 py-5">
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {candidateSections.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+            <div className="rounded border-2 border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
               No hay otros ejercicios disponibles para intercambiar ahora.
             </div>
           ) : (
             candidateSections.map((section) => (
-              <div key={section.id} className="space-y-3">
-                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">
+              <div key={section.id} className="space-y-2">
+                <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   {section.name}
                 </div>
 
                 {section.groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        {!shouldHideGroupName(group) ? (
-                          <div className="text-sm font-semibold text-slate-950">
-                            {group.name}
-                          </div>
-                        ) : null}
-                        <div className="text-xs text-slate-500">
-                          {group.series} series
-                        </div>
+                  <div key={group.id} className="space-y-1">
+                    {!shouldHideGroupName(group) ? (
+                      <div className="text-xs text-muted-foreground">
+                        {group.name}
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="rounded-full border-slate-200 bg-white text-slate-700"
+                    ) : null}
+                    {group.exercises.map((exercise) => (
+                      <button
+                        key={exercise.slotId}
+                        className="flex w-full items-center justify-between gap-3 py-1.5 text-left transition hover:bg-muted rounded px-2 -mx-2"
+                        onClick={() => onSelectTarget(exercise.slotId)}
+                        type="button"
                       >
-                        {group.exercises.length} candidato
-                        {group.exercises.length === 1 ? "" : "s"}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-3">
-                      {group.exercises.map((exercise) => (
-                        <button
-                          key={exercise.slotId}
-                          className="flex w-full items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
-                          onClick={() => onSelectTarget(exercise.slotId)}
-                          type="button"
-                        >
-                          <div className="space-y-1">
-                            <div className="text-sm font-semibold text-slate-950">
-                              {exercise.name}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {formatTarget(exercise)}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-600">
-                              <Clock3 className="size-3.5 text-slate-400" />
-                              {getStatusLabel(
-                                exercise.logType,
-                                exercise.lastLogSummary
-                              )}
-                            </div>
-                          </div>
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                            Usar
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                        <span className="text-sm font-bold text-foreground">
+                          {exercise.name}
+                        </span>
+                        <span className="rounded bg-accent px-2 py-1 text-xs font-bold text-accent-foreground">
+                          Usar
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -781,45 +715,23 @@ function SessionPanel({
   return (
     <Card
       ref={panelRef}
-      className="scroll-mt-24 rounded-[28px] border-white/60 bg-white/85 py-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)]"
+      className="scroll-mt-20 rounded-xl border-border bg-card"
     >
-      <CardHeader className="px-5">
-        <div className="flex items-center justify-between gap-4">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-xl text-slate-950">Sesión</CardTitle>
-            <CardDescription>
-              Registrá toda la rutina en una sola carga, con valores por serie y
-              una nota opcional.
-            </CardDescription>
+            <CardTitle className="text-lg">{routine.name}</CardTitle>
+            <CardDescription>{routine.summary}</CardDescription>
           </div>
-          <div className="rounded-2xl bg-emerald-100 p-2 text-emerald-800">
-            <Dumbbell className="size-4" />
-          </div>
+          <Badge className="rounded border-2 border-border bg-card px-2 py-1 text-xs font-bold text-foreground">
+            {formatRelativeSessionDate(routine.lastSessionAt)}
+          </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 px-5">
-        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-slate-950">
-                {routine.name}
-              </div>
-              <div className="mt-1 text-xs text-slate-500">
-                {routine.summary}
-              </div>
-            </div>
-            <Badge className="rounded-full bg-slate-900 px-3 py-1 text-white hover:bg-slate-900">
-              {formatRelativeSessionDate(routine.lastSessionAt)}
-            </Badge>
-          </div>
-        </div>
+      <CardContent className="space-y-3">
 
         {hasWeightedGroups ? (
           <>
-            <div className="text-xs text-slate-500">
-              Completá los ejercicios con seguimiento real de esta rutina.
-            </div>
-
             {routine.sections.map((section) => {
               const sectionGroups = section.groups.filter(
                 (group) => group.exercises.length > 0
@@ -830,50 +742,52 @@ function SessionPanel({
               }
 
               return (
-                <div key={section.id} className="space-y-3">
-                  <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">
-                    {section.name}
+                <div key={section.id} className="space-y-2">
+                  <div className="border-b-2 border-border pb-2">
+                    <span className="text-sm font-bold uppercase tracking-wide text-foreground">
+                      {section.name}
+                    </span>
                   </div>
                   {sectionGroups.map((group) => {
                     return (
                       <div
                         key={group.id}
-                        className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4"
+                        className="space-y-2 border-b border-dashed border-border pb-3 last:border-b-0"
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3">
                           <div>
                             {!shouldHideGroupName(group) ? (
-                              <div className="text-sm font-semibold text-slate-950">
+                              <div className="text-sm font-semibold text-foreground">
                                 {group.name}
                               </div>
                             ) : null}
-                            <div className="text-xs text-slate-500">
+                            <div className="text-xs text-muted-foreground">
                               {group.series} series
                             </div>
                           </div>
                           <Badge
                             variant="outline"
-                            className="rounded-full border-emerald-200 bg-white text-emerald-700"
+                            className="rounded-md border-border bg-card text-muted-foreground"
                           >
                             {group.exercises.length} ejercicio
                             {group.exercises.length === 1 ? "" : "s"}
                           </Badge>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {Array.from({ length: group.series }, (_, index) => {
                             const setNumber = index + 1
 
                             return (
                               <div
                                 key={`${group.id}-set-${setNumber}`}
-                                className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+                                className="space-y-1 py-1"
                               >
-                                <div className="text-sm font-semibold text-slate-950">
+                                <div className="inline-block rounded bg-accent px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-accent-foreground">
                                   Serie {setNumber}
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-1">
                                   {group.exercises.map((exercise) => {
                                     const inputKey = buildWeightInputKey(
                                       exercise.id,
@@ -884,91 +798,74 @@ function SessionPanel({
                                     return (
                                       <div
                                         key={inputKey}
-                                        className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 min-h-[44px]"
                                       >
-                                        <div className="min-w-0 space-y-1">
-                                          <div className="flex items-start gap-2">
-                                            <button
-                                              aria-label={
-                                                exercise.isSwapped
-                                                  ? "Deshacer intercambio"
-                                                  : "Intercambiar"
-                                              }
-                                              className={cn(
-                                                "mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full transition",
-                                                exercise.isSwapped
-                                                  ? "text-amber-700 hover:bg-amber-100 hover:text-amber-800"
-                                                  : "text-slate-400 hover:bg-slate-200 hover:text-emerald-700"
-                                              )}
-                                              onClick={() =>
-                                                exercise.isSwapped
-                                                  ? onUndoSwap(exercise.slotId)
-                                                  : onStartSwap(exercise.slotId)
-                                              }
-                                              type="button"
-                                            >
-                                              <ArrowRightLeft className="size-3.5" />
-                                            </button>
-                                            <div className="min-w-0">
-                                              <div className="flex flex-wrap items-center gap-2">
-                                                <label
-                                                  className="block text-sm font-medium text-slate-950"
-                                                  htmlFor={inputId}
-                                                >
-                                                  {exercise.name}
-                                                </label>
-                                                {exercise.isSwapped ? (
-                                                  <Badge className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100">
-                                                    Intercambiado hoy
-                                                  </Badge>
-                                                ) : null}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <span className="block text-xs text-slate-500">
-                                            {formatTarget(exercise)}
-                                          </span>
-                                          {exercise.isSwapped ? (
-                                            <span className="block text-xs font-medium text-amber-700">
-                                              En lugar de:{" "}
-                                              {exercise.originalExerciseName}
-                                            </span>
-                                          ) : null}
-                                          <span className="flex items-center gap-2 text-xs text-slate-600">
-                                            <Clock3 className="size-3.5 text-slate-400" />
-                                            {getStatusLabel(
-                                              exercise.logType,
-                                              exercise.lastLogSummary
-                                            )}
-                                          </span>
-                                        </div>
-                                        <div className="flex shrink-0 flex-col items-end gap-2">
-                                          <input
-                                            aria-label={`${exercise.name} serie ${setNumber}`}
-                                            className="h-9 w-20 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                                            id={inputId}
-                                            inputMode={getInputMode(
-                                              exercise.logType
-                                            )}
-                                            onFocus={(event) => {
-                                              if (
-                                                event.target.value.length > 0
-                                              ) {
-                                                event.target.select()
-                                              }
-                                            }}
-                                            onChange={(event) =>
-                                              onValueChange(
-                                                inputKey,
-                                                event.target.value
-                                              )
+                                        <div className="min-w-0 flex items-center gap-2">
+                                          <button
+                                            aria-label={
+                                              exercise.isSwapped
+                                                ? "Deshacer intercambio"
+                                                : "Intercambiar"
                                             }
-                                            placeholder={getInputPlaceholder(
-                                              exercise.logType
+                                            className={cn(
+                                              "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
+                                              exercise.isSwapped
+                                                ? "text-amber-600 hover:bg-amber-100"
+                                                : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                                             )}
-                                            value={values[inputKey] ?? ""}
-                                          />
+                                            onClick={() =>
+                                              exercise.isSwapped
+                                                ? onUndoSwap(exercise.slotId)
+                                                : onStartSwap(exercise.slotId)
+                                            }
+                                            type="button"
+                                          >
+                                            <ArrowRightLeft className="size-3.5" />
+                                          </button>
+                                          <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                              <label
+                                                className="text-sm font-bold text-foreground"
+                                                htmlFor={inputId}
+                                              >
+                                                {exercise.name}
+                                              </label>
+                                              {exercise.isSwapped ? (
+                                                <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
+                                                  Swap
+                                                </Badge>
+                                              ) : null}
+                                            </div>
+                                            <span className="block text-xs text-muted-foreground">
+                                              {formatTarget(exercise)}
+                                            </span>
+                                          </div>
                                         </div>
+                                        <input
+                                          aria-label={`${exercise.name} serie ${setNumber}`}
+                                          className="h-8 w-14 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent"
+                                          id={inputId}
+                                          inputMode={getInputMode(
+                                            exercise.logType
+                                          )}
+                                          onFocus={(event) => {
+                                            if (
+                                              event.target.value.length > 0
+                                            ) {
+                                              event.target.select()
+                                            }
+                                          }}
+                                          onChange={(event) =>
+                                            onValueChange(
+                                              inputKey,
+                                              event.target.value
+                                            )
+                                          }
+                                          placeholder={getInputPlaceholder(
+                                            exercise.logType
+                                          )}
+                                          value={values[inputKey] ?? ""}
+                                        />
                                       </div>
                                     )
                                   })}
@@ -984,22 +881,22 @@ function SessionPanel({
               )
             })}
 
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <NotebookPen className="size-4" />
-                Nota de la sesión
+            <div className="space-y-1.5 pt-2">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-foreground">
+                <NotebookPen className="size-3.5" />
+                Nota
               </label>
               <textarea
-                className="min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                className="min-h-16 w-full rounded-md border-2 border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-accent focus:bg-accent/10"
                 maxLength={500}
                 onChange={(event) => onNoteChange(event.target.value)}
-                placeholder="Opcional. Cómo te sentiste, ajustes o algo a recordar."
+                placeholder="Cómo te sentiste, ajustes..."
                 value={note}
               />
             </div>
 
             <Button
-              className="h-11 w-full rounded-full bg-slate-950 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-12 w-full rounded-md border-2 border-border bg-accent text-accent-foreground font-bold uppercase tracking-wide shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-60"
               disabled={!hasWeightedGroups || isPending}
               onClick={() => {
                 void onSubmit()
@@ -1010,7 +907,7 @@ function SessionPanel({
             </Button>
           </>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+          <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
             Esta rutina no tiene ejercicios con seguimiento de peso.
           </div>
         )}
@@ -1229,7 +1126,7 @@ export function WorkoutApp({
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-2 py-6 md:px-6 md:py-8">
+    <main className="mx-auto max-w-6xl px-2 py-4 md:px-6 md:py-6">
       {status.type !== "idle" ? (
         <FloatingToast
           onClose={() => setStatus({ type: "idle", message: "" })}
@@ -1249,46 +1146,39 @@ export function WorkoutApp({
         sourceExercise={swapSourceExercise}
       />
 
-      <section className="relative mb-6 overflow-hidden rounded-[32px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(240,247,244,0.92))] px-5 py-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.28)] md:px-7 md:py-7">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_72%)]" />
-        <div className="relative">
-          <div className="mb-3 inline-flex items-center rounded-full border border-emerald-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">
+      <section className="relative mb-4 overflow-hidden rounded-lg border-2 border-border bg-card px-4 py-4 shadow-brutal md:px-5 md:py-5">
+        <div className="space-y-3">
+          <div className="inline-flex items-center rounded border-2 border-border bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent-foreground">
             Gym App
           </div>
-          <div className="max-w-3xl space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+          <div className="max-w-3xl">
+            <h1 className="text-2xl font-black uppercase tracking-tight text-foreground md:text-3xl">
               Tu entrenamiento de hoy
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
-              Elegí la rutina, completá tus series y seguí tu constancia mes a
-              mes.
-            </p>
           </div>
-          <div className="mt-5 flex items-start justify-between gap-3">
-            <div className="min-w-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Rutina activa
+          <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-2">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Rutina seleccionada
               </div>
-              <div className="mt-1 truncate text-sm font-semibold text-slate-950">
+              <div className="truncate text-sm font-bold text-foreground">
                 {selectedRoutine?.name ?? "Sin rutina"}
               </div>
             </div>
-            <div className="shrink-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 text-right shadow-sm">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Días entrenados
+            <div className="shrink-0 text-right">
+              <div className="text-2xl font-black text-foreground">
+                {attendance.daysWithSessions.length}
               </div>
-              <div className="mt-1 text-sm font-semibold text-slate-950">
-                {attendance.daysWithSessions.length === 1
-                  ? "1 día"
-                  : `${attendance.daysWithSessions.length} días`}
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                días este mes
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <div className="grid gap-4">
+      <div className="grid gap-3 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-3">
           <AttendanceCard attendance={attendance} history={history} />
           <RoutineList
             onSelect={handleSelectRoutine}
@@ -1297,7 +1187,7 @@ export function WorkoutApp({
           />
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {sessionRoutine ? (
             <SessionPanel
               isPending={isPending || isSubmitting}
@@ -1320,7 +1210,7 @@ export function WorkoutApp({
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <SessionHistory history={history} />
       </div>
     </main>
