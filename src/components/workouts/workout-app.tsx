@@ -521,14 +521,13 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
   )
 
   return (
-    <Card className="rounded-xl border-border bg-card">
-      <CardHeader className="border-b border-border">
-        <CardTitle className="text-lg text-foreground">Historial</CardTitle>
-        <CardDescription>
-          Sesiones guardadas. Solo lectura en esta versión.
-        </CardDescription>
+    <Card>
+      <CardHeader className="border-b-2 border-border">
+        <CardTitle className="text-lg uppercase tracking-wide">
+          Historial
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-0">
+      <CardContent className="space-y-0 pt-2">
         {history.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
             Todavía no hay sesiones guardadas.
@@ -545,7 +544,7 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
               <div className="border-b border-border last:border-b-0">
                 <CollapsibleTrigger asChild>
                   <button
-                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
+                    className="flex w-full items-center justify-between gap-3 py-2 text-left"
                     type="button"
                   >
                     <div>
