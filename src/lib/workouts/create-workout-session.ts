@@ -93,12 +93,17 @@ async function validateRoutineSessionInput(input: CreateWorkoutSessionInput) {
   const exerciseMap = indexLoggableExercisesById(routine.sections);
   const normalizedSetLogs = input.setLogs.map((setLog) => {
     const exerciseMeta = exerciseMap.get(setLog.exerciseId);
+    const slotMeta = exerciseMap.get(setLog.slotExerciseId);
 
     if (!exerciseMeta) {
       throw new Error('The submitted exercise does not belong to the selected routine.');
     }
 
-    if (setLog.setNumber > exerciseMeta.maxSets) {
+    if (!slotMeta) {
+      throw new Error('The submitted exercise slot does not belong to the selected routine.');
+    }
+
+    if (setLog.setNumber > slotMeta.maxSets) {
       throw new Error('The submitted set number exceeds the configured number of series.');
     }
 

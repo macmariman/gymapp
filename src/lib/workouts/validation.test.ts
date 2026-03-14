@@ -8,6 +8,7 @@ describe('parseCreateWorkoutSessionInput', () => {
       setLogs: [
         {
           exerciseId: 'exercise-1',
+          slotExerciseId: 'exercise-1',
           setNumber: 1,
           value: '62.5'
         }
@@ -20,6 +21,7 @@ describe('parseCreateWorkoutSessionInput', () => {
       setLogs: [
         {
           exerciseId: 'exercise-1',
+          slotExerciseId: 'exercise-1',
           setNumber: 1,
           value: '62.5'
         }
@@ -34,11 +36,13 @@ describe('parseCreateWorkoutSessionInput', () => {
         setLogs: [
           {
             exerciseId: 'exercise-1',
+            slotExerciseId: 'exercise-1',
             setNumber: 1,
             value: '60'
           },
           {
-            exerciseId: 'exercise-1',
+            exerciseId: 'exercise-2',
+            slotExerciseId: 'exercise-1',
             setNumber: 1,
             value: '62.5'
           }

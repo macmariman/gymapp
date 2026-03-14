@@ -58,6 +58,24 @@ const workoutPageData: WorkoutPageData = {
                 },
               ],
             },
+            {
+              id: "group-3",
+              name: "Bloque 2",
+              sectionName: "Fuerza",
+              series: 4,
+              exercises: [
+                {
+                  id: "exercise-4",
+                  name: "Aperturas con mancuernas",
+                  targetType: "reps",
+                  targetValue: 12,
+                  note: null,
+                  logType: "weight",
+                  lastLogSummary: "18 kg / 18 kg / 16 kg / 14 kg",
+                  lastLogValues: ["18", "18", "16", "14"],
+                },
+              ],
+            },
           ],
         },
       ],
@@ -134,7 +152,7 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue("62.5")
 
     const firstSeriesCard = screen
-      .getByText("Serie 1")
+      .getAllByText("Serie 1")[0]
       .closest("div.rounded-2xl.border.border-slate-200.bg-white.p-4")
 
     expect(firstSeriesCard).not.toBeNull()
@@ -195,6 +213,84 @@ describe("WorkoutApp", () => {
     expect(
       await screen.findByText("Sesión guardada correctamente.")
     ).toBeInTheDocument()
+  })
+
+  it("swaps exercises inside the same routine and can undo the swap", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getAllByRole("button", { name: "Intercambiar" })[0])
+
+    expect(
+      screen.getByText("Intercambiar ejercicio de hoy")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /pecho plano con barra/i })
+    ).not.toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole("button", { name: /aperturas con mancuernas/i })
+    )
+
+    expect(screen.getAllByText("Aperturas con mancuernas").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Pecho plano con barra").length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/En lugar de: Pecho plano con barra/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/En lugar de: Aperturas con mancuernas/i).length
+    ).toBeGreaterThan(0)
+
+    await user.click(
+      screen.getAllByRole("button", { name: "Deshacer intercambio" })[0]
+    )
+
+    expect(
+      screen.queryByText(/En lugar de: Pecho plano con barra/i)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/En lugar de: Aperturas con mancuernas/i)
+    ).not.toBeInTheDocument()
+  })
+
+  it("submits swapped exercises with their destination slot ids", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getAllByRole("button", { name: "Intercambiar" })[0])
+    await user.click(
+      screen.getByRole("button", { name: /aperturas con mancuernas/i })
+    )
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    const [, request] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const payload = JSON.parse(String(request.body)) as {
+      setLogs: Array<{
+        exerciseId: string
+        slotExerciseId: string
+        setNumber: number
+      }>
+    }
+
+    expect(payload.setLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: "exercise-4",
+          slotExerciseId: "exercise-1",
+          setNumber: 1,
+        }),
+        expect.objectContaining({
+          exerciseId: "exercise-1",
+          slotExerciseId: "exercise-4",
+          setNumber: 1,
+        }),
+      ])
+    )
   })
 
   it("collapses the attendance card content from the header trigger", async () => {

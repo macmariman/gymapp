@@ -4,6 +4,7 @@ import * as React from "react"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
+  ArrowRightLeft,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -42,6 +43,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
 
@@ -49,6 +57,27 @@ type SubmissionState =
   | { type: "idle"; message: string }
   | { type: "success"; message: string }
   | { type: "error"; message: string }
+
+type SlotAssignments = Record<string, string>
+
+type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
+  slotId: string
+  originalExerciseName: string
+  assignedExerciseId: string
+  isSwapped: boolean
+}
+
+type SessionGroupView = Omit<ExerciseGroupView, "exercises"> & {
+  exercises: SessionExerciseView[]
+}
+
+type SessionRoutineSectionView = Omit<RoutineWithStructure["sections"][number], "groups"> & {
+  groups: SessionGroupView[]
+}
+
+type SessionRoutineWithStructure = Omit<RoutineWithStructure, "sections"> & {
+  sections: SessionRoutineSectionView[]
+}
 
 function FloatingToast({
   status,
@@ -84,6 +113,102 @@ function FloatingToast({
 
 function buildWeightInputKey(exerciseId: string, setNumber: number) {
   return `${exerciseId}:${setNumber}`
+}
+
+function buildInitialSlotAssignments(routine: RoutineWithStructure | undefined) {
+  if (!routine) {
+    return {}
+  }
+
+  return routine.sections.reduce<SlotAssignments>((sectionAccumulator, section) => {
+    section.groups.forEach((group) => {
+      group.exercises.forEach((exercise) => {
+        if (!isExerciseLoggable(exercise.logType)) {
+          return
+        }
+
+        sectionAccumulator[exercise.id] = exercise.id
+      })
+    })
+
+    return sectionAccumulator
+  }, {})
+}
+
+function findSlotIdByAssignedExercise(
+  slotAssignments: SlotAssignments,
+  exerciseId: string
+) {
+  return (
+    Object.entries(slotAssignments).find(
+      ([, assignedExerciseId]) => assignedExerciseId === exerciseId
+    )?.[0] ?? null
+  )
+}
+
+function buildSessionRoutine(
+  routine: RoutineWithStructure | undefined,
+  slotAssignments: SlotAssignments
+): SessionRoutineWithStructure | undefined {
+  if (!routine) {
+    return undefined
+  }
+
+  const exerciseById = new Map(
+    routine.sections.flatMap((section) =>
+      section.groups.flatMap((group) =>
+        group.exercises
+          .filter((exercise) => isExerciseLoggable(exercise.logType))
+          .map((exercise) => [exercise.id, exercise] as const)
+      )
+    )
+  )
+
+  return {
+    ...routine,
+    sections: routine.sections.map((section) => ({
+      ...section,
+      groups: section.groups.map((group) => ({
+        ...group,
+        exercises: group.exercises
+          .filter((exercise) => isExerciseLoggable(exercise.logType))
+          .map((exercise) => {
+            const assignedExerciseId = slotAssignments[exercise.id] ?? exercise.id
+            const assignedExercise =
+              exerciseById.get(assignedExerciseId) ?? exercise
+
+            return {
+              ...assignedExercise,
+              slotId: exercise.id,
+              originalExerciseName: exercise.name,
+              assignedExerciseId,
+              isSwapped: assignedExerciseId !== exercise.id,
+            }
+          }),
+      })),
+    })),
+  }
+}
+
+function getSessionExerciseBySlotId(
+  routine: SessionRoutineWithStructure | undefined,
+  slotId: string | null
+) {
+  if (!routine || !slotId) {
+    return null
+  }
+
+  for (const section of routine.sections) {
+    for (const group of section.groups) {
+      const exercise = group.exercises.find((entry) => entry.slotId === slotId)
+
+      if (exercise) {
+        return exercise
+      }
+    }
+  }
+
+  return null
 }
 
 function buildInitialValues(routine: RoutineWithStructure | undefined) {
@@ -404,10 +529,6 @@ function shouldHideGroupName(group: ExerciseGroupView) {
   return group.name === group.sectionName
 }
 
-function getLoggableExercises(group: ExerciseGroupView) {
-  return group.exercises.filter((exercise) => isExerciseLoggable(exercise.logType))
-}
-
 function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
   const [openEntryId, setOpenEntryId] = useState<string | null>(
     history[0]?.id ?? null
@@ -497,6 +618,138 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
   )
 }
 
+function ExerciseSwapDialog({
+  open,
+  sourceExercise,
+  routine,
+  onOpenChange,
+  onSelectTarget,
+}: {
+  open: boolean
+  sourceExercise: SessionExerciseView | null
+  routine: SessionRoutineWithStructure | undefined
+  onOpenChange: (open: boolean) => void
+  onSelectTarget: (targetSlotId: string) => void
+}) {
+  const candidateSections =
+    routine?.sections
+      .map((section) => ({
+        ...section,
+        groups: section.groups
+          .map((group) => ({
+            ...group,
+            exercises: group.exercises.filter(
+              (exercise) =>
+                exercise.slotId !== sourceExercise?.slotId && !exercise.isSwapped
+            ),
+          }))
+          .filter((group) => group.exercises.length > 0),
+      }))
+      .filter((section) => section.groups.length > 0) ?? []
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="max-h-[85vh] overflow-hidden rounded-[28px] border border-slate-200 bg-white p-0 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.45)] sm:max-w-2xl">
+        <DialogHeader className="space-y-3 border-b border-slate-200 px-6 py-5 text-left">
+          <DialogTitle className="text-xl text-slate-950">
+            Intercambiar ejercicio de hoy
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-slate-600">
+            Elegí otro ejercicio de esta rutina para intercambiar su posición
+            solo en la sesión de hoy.
+          </DialogDescription>
+          {sourceExercise ? (
+            <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                Ejercicio origen
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-950">
+                {sourceExercise.name}
+              </div>
+              <div className="mt-1 text-xs text-slate-600">
+                {formatTarget(sourceExercise)}
+              </div>
+            </div>
+          ) : null}
+        </DialogHeader>
+
+        <div className="space-y-4 overflow-y-auto px-6 py-5">
+          {candidateSections.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              No hay otros ejercicios disponibles para intercambiar ahora.
+            </div>
+          ) : (
+            candidateSections.map((section) => (
+              <div key={section.id} className="space-y-3">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">
+                  {section.name}
+                </div>
+
+                {section.groups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        {!shouldHideGroupName(group) ? (
+                          <div className="text-sm font-semibold text-slate-950">
+                            {group.name}
+                          </div>
+                        ) : null}
+                        <div className="text-xs text-slate-500">
+                          {group.series} series
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full border-slate-200 bg-white text-slate-700"
+                      >
+                        {group.exercises.length} candidato
+                        {group.exercises.length === 1 ? "" : "s"}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-3">
+                      {group.exercises.map((exercise) => (
+                        <button
+                          key={exercise.slotId}
+                          className="flex w-full items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                          onClick={() => onSelectTarget(exercise.slotId)}
+                          type="button"
+                        >
+                          <div className="space-y-1">
+                            <div className="text-sm font-semibold text-slate-950">
+                              {exercise.name}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {formatTarget(exercise)}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              <Clock3 className="size-3.5 text-slate-400" />
+                              {getStatusLabel(
+                                exercise.logType,
+                                exercise.lastLogSummary
+                              )}
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                            Usar
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function SessionPanel({
   routine,
   note,
@@ -504,20 +757,24 @@ function SessionPanel({
   values,
   onNoteChange,
   onValueChange,
+  onStartSwap,
+  onUndoSwap,
   onSubmit,
   panelRef,
 }: {
-  routine: RoutineWithStructure
+  routine: SessionRoutineWithStructure
   note: string
   isPending: boolean
   values: Record<string, string>
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
+  onStartSwap: (slotId: string) => void
+  onUndoSwap: (slotId: string) => void
   onSubmit: () => Promise<void>
   panelRef: React.RefObject<HTMLDivElement | null>
 }) {
   const groupsWithTracking = routine.sections.flatMap((section) =>
-    section.groups.filter((group) => getLoggableExercises(group).length > 0)
+    section.groups.filter((group) => group.exercises.length > 0)
   )
   const hasWeightedGroups = groupsWithTracking.length > 0
 
@@ -565,7 +822,7 @@ function SessionPanel({
 
             {routine.sections.map((section) => {
               const sectionGroups = section.groups.filter(
-                (group) => getLoggableExercises(group).length > 0
+                (group) => group.exercises.length > 0
               )
 
               if (sectionGroups.length === 0) {
@@ -578,8 +835,6 @@ function SessionPanel({
                     {section.name}
                   </div>
                   {sectionGroups.map((group) => {
-                    const loggableExercises = getLoggableExercises(group)
-
                     return (
                       <div
                         key={group.id}
@@ -600,8 +855,8 @@ function SessionPanel({
                             variant="outline"
                             className="rounded-full border-emerald-200 bg-white text-emerald-700"
                           >
-                            {loggableExercises.length} ejercicio
-                            {loggableExercises.length === 1 ? "" : "s"}
+                            {group.exercises.length} ejercicio
+                            {group.exercises.length === 1 ? "" : "s"}
                           </Badge>
                         </div>
 
@@ -619,24 +874,66 @@ function SessionPanel({
                                 </div>
 
                                 <div className="space-y-3">
-                                  {loggableExercises.map((exercise) => {
+                                  {group.exercises.map((exercise) => {
                                     const inputKey = buildWeightInputKey(
                                       exercise.id,
                                       setNumber
                                     )
+                                    const inputId = `${inputKey}-input`
 
                                     return (
-                                      <label
+                                      <div
                                         key={inputKey}
-                                        className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                                        className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
                                       >
-                                        <span className="space-y-1">
-                                          <span className="block text-sm font-medium text-slate-950">
-                                            {exercise.name}
-                                          </span>
+                                        <div className="min-w-0 space-y-1">
+                                          <div className="flex items-start gap-2">
+                                            <button
+                                              aria-label={
+                                                exercise.isSwapped
+                                                  ? "Deshacer intercambio"
+                                                  : "Intercambiar"
+                                              }
+                                              className={cn(
+                                                "mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full transition",
+                                                exercise.isSwapped
+                                                  ? "text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                                  : "text-slate-400 hover:bg-slate-200 hover:text-emerald-700"
+                                              )}
+                                              onClick={() =>
+                                                exercise.isSwapped
+                                                  ? onUndoSwap(exercise.slotId)
+                                                  : onStartSwap(exercise.slotId)
+                                              }
+                                              type="button"
+                                            >
+                                              <ArrowRightLeft className="size-3.5" />
+                                            </button>
+                                            <div className="min-w-0">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <label
+                                                  className="block text-sm font-medium text-slate-950"
+                                                  htmlFor={inputId}
+                                                >
+                                                  {exercise.name}
+                                                </label>
+                                                {exercise.isSwapped ? (
+                                                  <Badge className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100">
+                                                    Intercambiado hoy
+                                                  </Badge>
+                                                ) : null}
+                                              </div>
+                                            </div>
+                                          </div>
                                           <span className="block text-xs text-slate-500">
                                             {formatTarget(exercise)}
                                           </span>
+                                          {exercise.isSwapped ? (
+                                            <span className="block text-xs font-medium text-amber-700">
+                                              En lugar de:{" "}
+                                              {exercise.originalExerciseName}
+                                            </span>
+                                          ) : null}
                                           <span className="flex items-center gap-2 text-xs text-slate-600">
                                             <Clock3 className="size-3.5 text-slate-400" />
                                             {getStatusLabel(
@@ -644,30 +941,35 @@ function SessionPanel({
                                               exercise.lastLogSummary
                                             )}
                                           </span>
-                                        </span>
-                                        <input
-                                          aria-label={`${exercise.name} serie ${setNumber}`}
-                                          className="h-9 w-20 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                                          inputMode={getInputMode(
-                                            exercise.logType
-                                          )}
-                                          onFocus={(event) => {
-                                            if (event.target.value.length > 0) {
-                                              event.target.select()
+                                        </div>
+                                        <div className="flex shrink-0 flex-col items-end gap-2">
+                                          <input
+                                            aria-label={`${exercise.name} serie ${setNumber}`}
+                                            className="h-9 w-20 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-950 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                                            id={inputId}
+                                            inputMode={getInputMode(
+                                              exercise.logType
+                                            )}
+                                            onFocus={(event) => {
+                                              if (
+                                                event.target.value.length > 0
+                                              ) {
+                                                event.target.select()
+                                              }
+                                            }}
+                                            onChange={(event) =>
+                                              onValueChange(
+                                                inputKey,
+                                                event.target.value
+                                              )
                                             }
-                                          }}
-                                          onChange={(event) =>
-                                            onValueChange(
-                                              inputKey,
-                                              event.target.value
-                                            )
-                                          }
-                                          placeholder={getInputPlaceholder(
-                                            exercise.logType
-                                          )}
-                                          value={values[inputKey] ?? ""}
-                                        />
-                                      </label>
+                                            placeholder={getInputPlaceholder(
+                                              exercise.logType
+                                            )}
+                                            value={values[inputKey] ?? ""}
+                                          />
+                                        </div>
+                                      </div>
                                     )
                                   })}
                                 </div>
@@ -731,6 +1033,8 @@ export function WorkoutApp({
   const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
   const [note, setNote] = useState("")
   const [values, setValues] = useState<Record<string, string>>({})
+  const [slotAssignments, setSlotAssignments] = useState<SlotAssignments>({})
+  const [swapSourceSlotId, setSwapSourceSlotId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const sessionPanelRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<SubmissionState>({
@@ -742,13 +1046,23 @@ export function WorkoutApp({
   const selectedRoutine =
     routineDetails.find((routine) => routine.id === selectedRoutineId) ??
     routineDetails[0]
+  const sessionRoutine = React.useMemo(
+    () => buildSessionRoutine(selectedRoutine, slotAssignments),
+    [selectedRoutine, slotAssignments]
+  )
+  const swapSourceExercise = React.useMemo(
+    () => getSessionExerciseBySlotId(sessionRoutine, swapSourceSlotId),
+    [sessionRoutine, swapSourceSlotId]
+  )
 
   useEffect(() => {
     setValues(buildInitialValues(selectedRoutine))
+    setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
+    setSwapSourceSlotId(null)
     setNote("")
     setStatus({
       type: "idle",
-        message:
+      message:
         "Guardá una sesión para actualizar asistencia, últimos registros e historial.",
     })
   }, [selectedRoutine])
@@ -782,18 +1096,60 @@ export function WorkoutApp({
     setShouldScrollToRoutine(true)
   }
 
+  function handleStartSwap(slotId: string) {
+    setSwapSourceSlotId(slotId)
+  }
+
+  function handleConfirmSwap(targetSlotId: string) {
+    setSlotAssignments((currentAssignments) => {
+      const sourceSlotId = swapSourceSlotId
+
+      if (!sourceSlotId || sourceSlotId === targetSlotId) {
+        return currentAssignments
+      }
+
+      const sourceExerciseId =
+        currentAssignments[sourceSlotId] ?? sourceSlotId
+      const targetExerciseId =
+        currentAssignments[targetSlotId] ?? targetSlotId
+
+      return {
+        ...currentAssignments,
+        [sourceSlotId]: targetExerciseId,
+        [targetSlotId]: sourceExerciseId,
+      }
+    })
+    setSwapSourceSlotId(null)
+  }
+
+  function handleUndoSwap(slotId: string) {
+    setSlotAssignments((currentAssignments) => {
+      const partnerSlotId = findSlotIdByAssignedExercise(
+        currentAssignments,
+        slotId
+      )
+
+      if (!partnerSlotId || partnerSlotId === slotId) {
+        return currentAssignments
+      }
+
+      return {
+        ...currentAssignments,
+        [slotId]: slotId,
+        [partnerSlotId]: partnerSlotId,
+      }
+    })
+    setSwapSourceSlotId(null)
+  }
+
   async function handleSubmit() {
-    if (!selectedRoutine || isSubmitting) {
+    if (!selectedRoutine || !sessionRoutine || isSubmitting) {
       return
     }
 
-    const setLogs = selectedRoutine.sections.flatMap((section) =>
+    const setLogs = sessionRoutine.sections.flatMap((section) =>
       section.groups.flatMap((group) =>
         group.exercises.flatMap((exercise) => {
-          if (!isExerciseLoggable(exercise.logType)) {
-            return []
-          }
-
           return Array.from({ length: group.series }, (_, index) => {
             const setNumber = index + 1
             const key = buildWeightInputKey(exercise.id, setNumber)
@@ -805,11 +1161,13 @@ export function WorkoutApp({
 
             return {
               exerciseId: exercise.id,
+              slotExerciseId: exercise.slotId,
               setNumber,
               value,
             }
           }).filter(Boolean) as Array<{
             exerciseId: string
+            slotExerciseId: string
             setNumber: number
             value: string
           }>
@@ -846,6 +1204,8 @@ export function WorkoutApp({
       }
 
       setValues({})
+      setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
+      setSwapSourceSlotId(null)
       setNote("")
       setStatus({
         type: "success",
@@ -876,6 +1236,18 @@ export function WorkoutApp({
           status={status}
         />
       ) : null}
+
+      <ExerciseSwapDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setSwapSourceSlotId(null)
+          }
+        }}
+        onSelectTarget={handleConfirmSwap}
+        open={swapSourceExercise !== null}
+        routine={sessionRoutine}
+        sourceExercise={swapSourceExercise}
+      />
 
       <section className="relative mb-6 overflow-hidden rounded-[32px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(240,247,244,0.92))] px-5 py-6 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.28)] md:px-7 md:py-7">
         <div className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_72%)]" />
@@ -926,12 +1298,14 @@ export function WorkoutApp({
         </div>
 
         <div className="grid gap-4">
-          {selectedRoutine ? (
+          {sessionRoutine ? (
             <SessionPanel
               isPending={isPending || isSubmitting}
               note={note}
               onNoteChange={setNote}
+              onStartSwap={handleStartSwap}
               onSubmit={handleSubmit}
+              onUndoSwap={handleUndoSwap}
               onValueChange={(key, value) =>
                 setValues((currentValues) => ({
                   ...currentValues,
@@ -939,7 +1313,7 @@ export function WorkoutApp({
                 }))
               }
               panelRef={sessionPanelRef}
-              routine={selectedRoutine}
+              routine={sessionRoutine}
               values={values}
             />
           ) : null}
