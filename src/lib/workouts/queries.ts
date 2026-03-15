@@ -286,7 +286,10 @@ export async function getWorkoutSessionHistory(): Promise<
   })
 
   return sessions.map((session) => {
-    const exerciseMap = new Map<string, SessionExerciseSummary>()
+    const exerciseMap = new Map<
+      string,
+      SessionExerciseSummary & { rawValues: string[] }
+    >()
 
     for (const setLog of session.setLogs) {
       const value =
@@ -305,17 +308,16 @@ export async function getWorkoutSessionHistory(): Promise<
           exerciseId: setLog.exerciseId,
           exerciseName: setLog.exercise.name,
           valueSummary: formatLogSummary(setLog.exercise.logType, [value]),
+          rawValues: [value],
         })
         continue
       }
 
-      const existingValues = savedExercise.valueSummary
-        .replace(/ (kg|rep|s)$/, "")
-        .split(" · ")
       exerciseMap.set(setLog.exerciseId, {
         ...savedExercise,
+        rawValues: [...savedExercise.rawValues, value],
         valueSummary: formatLogSummary(setLog.exercise.logType, [
-          ...existingValues,
+          ...savedExercise.rawValues,
           value,
         ]),
       })
@@ -327,7 +329,11 @@ export async function getWorkoutSessionHistory(): Promise<
       routineName: session.routine.name,
       performedAt: session.performedAt.toISOString(),
       note: session.note,
-      exercises: [...exerciseMap.values()],
+      exercises: [...exerciseMap.values()].map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        exerciseName: exercise.exerciseName,
+        valueSummary: exercise.valueSummary,
+      })),
     }
   })
 }

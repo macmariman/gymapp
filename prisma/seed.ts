@@ -2,12 +2,96 @@ import "dotenv/config"
 
 import { PrismaClient } from "@prisma/client"
 
+import { workoutProgressSeedScenarios } from "../src/lib/workouts/progress-seed-data.js"
 import { workoutSeedData } from "../src/lib/workouts/seed-data.js"
 
 const prisma = new PrismaClient()
 
 function buildMovementSlug(name: string, logType: string) {
   return `${name.trim().toLowerCase().replace(/\s+/g, "-")}-${logType}`
+}
+
+function buildPerformedAt(daysAgo: number) {
+  const performedAt = new Date()
+  performedAt.setHours(9, 0, 0, 0)
+  performedAt.setDate(performedAt.getDate() - daysAgo)
+
+  return performedAt
+}
+
+async function seedProgressScenarios() {
+  const exercises = await prisma.exercise.findMany({
+    select: {
+      id: true,
+      name: true,
+      logType: true,
+      group: {
+        select: {
+          series: true,
+          section: {
+            select: {
+              routine: {
+                select: {
+                  id: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  const exercisesByName = new Map(
+    exercises.map((exercise) => [exercise.name, exercise])
+  )
+
+  for (const scenario of workoutProgressSeedScenarios) {
+    const exercise = exercisesByName.get(scenario.exerciseName)
+
+    if (!exercise) {
+      throw new Error(
+        `Missing seeded exercise "${scenario.exerciseName}" for scenario ${scenario.caseId}.`
+      )
+    }
+
+    if (exercise.logType === "none") {
+      throw new Error(`Exercise "${scenario.exerciseName}" is not loggable.`)
+    }
+
+    for (const sessionTemplate of scenario.sessions) {
+      if (sessionTemplate.values.length > exercise.group.series) {
+        throw new Error(
+          `Scenario ${scenario.caseId} exceeds the configured series count for "${scenario.exerciseName}".`
+        )
+      }
+
+      await prisma.workoutSession.create({
+        data: {
+          routineId: exercise.group.section.routine.id,
+          performedAt: buildPerformedAt(sessionTemplate.daysAgo),
+          note: sessionTemplate.note,
+          setLogs: {
+            create: sessionTemplate.values.map((value, index) => ({
+              exerciseId: exercise.id,
+              setNumber: index + 1,
+              ...(exercise.logType === "weight"
+                ? {
+                    weightKg: value.toFixed(2),
+                  }
+                : exercise.logType === "time"
+                  ? {
+                      durationSeconds: value,
+                    }
+                  : {
+                      repsCount: value,
+                    }),
+            })),
+          },
+        },
+      })
+    }
+  }
 }
 
 async function main() {
@@ -69,6 +153,8 @@ async function main() {
       },
     })
   }
+
+  await seedProgressScenarios()
 }
 
 main()

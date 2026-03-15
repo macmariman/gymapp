@@ -144,7 +144,9 @@ describe("ExerciseProgressPage", () => {
     expect(screen.getByText("Gráfico histórico")).toBeInTheDocument()
     expect(screen.getByText("Resumen")).toBeInTheDocument()
     expect(screen.getByText("Historial")).toBeInTheDocument()
-    expect(screen.queryByText("Historial insuficiente")).not.toBeInTheDocument()
+    expect(
+      screen.getByText("Faltan 4 sesiones para ver la tendencia.")
+    ).toBeInTheDocument()
   })
 
   it("renders the progress screen and changes the selected metric", async () => {
@@ -160,6 +162,8 @@ describe("ExerciseProgressPage", () => {
     expect(screen.getByText("Press banca")).toBeInTheDocument()
     expect(screen.getByText("Récord")).toBeInTheDocument()
     expect(screen.getAllByText("70 kg").length).toBeGreaterThan(0)
+    expect(screen.getByText("Tendencia")).toBeInTheDocument()
+    expect(screen.getByText("Subiendo")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Volumen" }))
 

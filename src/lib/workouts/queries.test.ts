@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import {
   getAttendanceMonth,
   getExerciseProgressPageData,
+  getWorkoutSessionHistory,
 } from "@/lib/workouts/queries"
 
 jest.mock("@/lib/prisma", () => ({
@@ -169,5 +170,77 @@ describe("getExerciseProgressPageData", () => {
         },
       ],
     })
+  })
+})
+
+describe("getWorkoutSessionHistory", () => {
+  it("keeps decimal weight values when aggregating exercise summaries", async () => {
+    const mockedFindMany = jest.mocked(prisma.workoutSession.findMany)
+
+    mockedFindMany.mockResolvedValue([
+      {
+        id: "session-1",
+        performedAt: new Date("2026-03-09T10:00:00.000Z"),
+        note: null,
+        routine: {
+          id: "routine-1",
+          name: "Rutina 1",
+        },
+        setLogs: [
+          {
+            exerciseId: "exercise-1",
+            weightKg: { toString: () => "46.5" },
+            repsCount: null,
+            durationSeconds: null,
+            exercise: {
+              id: "exercise-1",
+              name: "Silla de cuádriceps",
+              logType: "weight",
+            },
+          },
+          {
+            exerciseId: "exercise-1",
+            weightKg: { toString: () => "48" },
+            repsCount: null,
+            durationSeconds: null,
+            exercise: {
+              id: "exercise-1",
+              name: "Silla de cuádriceps",
+              logType: "weight",
+            },
+          },
+          {
+            exerciseId: "exercise-1",
+            weightKg: { toString: () => "48" },
+            repsCount: null,
+            durationSeconds: null,
+            exercise: {
+              id: "exercise-1",
+              name: "Silla de cuádriceps",
+              logType: "weight",
+            },
+          },
+        ],
+      },
+    ] as never)
+
+    const result = await getWorkoutSessionHistory()
+
+    expect(result).toEqual([
+      {
+        id: "session-1",
+        routineId: "routine-1",
+        routineName: "Rutina 1",
+        performedAt: "2026-03-09T10:00:00.000Z",
+        note: null,
+        exercises: [
+          {
+            exerciseId: "exercise-1",
+            exerciseName: "Silla de cuádriceps",
+            valueSummary: "46,5 · 48 · 48 kg",
+          },
+        ],
+      },
+    ])
   })
 })

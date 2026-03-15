@@ -44,6 +44,7 @@ const CHART_PADDING = {
   bottom: 28,
   left: 16,
 }
+const TREND_MINIMUM_SESSIONS = 6
 
 function getTrendBadgeClassName(trendLabel: string) {
   if (trendLabel === "Subiendo") {
@@ -59,6 +60,10 @@ function getTrendBadgeClassName(trendLabel: string) {
   }
 
   return "border-amber-200 bg-amber-50 text-amber-700"
+}
+
+function getSessionsUntilTrend(sessionCount: number) {
+  return Math.max(0, TREND_MINIMUM_SESSIONS - sessionCount)
 }
 
 function ProgressSegmentedControl<T extends string>({
@@ -277,7 +282,7 @@ function ProgressChart({
             className="fill-muted-foreground text-[10px] font-bold"
             textAnchor="start"
             x={CHART_PADDING.left}
-            y={CHART_HEIGHT - 6}
+            y={CHART_HEIGHT - CHART_PADDING.bottom - 6}
           >
             {formatProgressMetricValue(metricKey, minValue)}
           </text>
@@ -305,11 +310,11 @@ export function ExerciseProgressPage({
   sessions,
 }: ExerciseProgressPageData & { backHref: string }) {
   const hasSessions = sessions.length > 0
-  const hasEnoughHistory = sessions.length >= 6
+  const hasEnoughHistory = sessions.length >= TREND_MINIMUM_SESSIONS
   const [selectedMetric, setSelectedMetric] =
     useState<ExerciseProgressMetricKey>(availableMetrics[0].key)
   const [selectedRange, setSelectedRange] =
-    useState<ExerciseProgressRangeKey>("all")
+    useState<ExerciseProgressRangeKey>("6m")
   const [activeSessionId, setActiveSessionId] = useState<string | null>(
     sessions[sessions.length - 1]?.id ?? null
   )
@@ -334,6 +339,7 @@ export function ExerciseProgressPage({
   const lastMetricValue = getLastMetricValue(sessions, selectedMetric)
   const trendLabel = getTrendLabel(sessions, selectedMetric)
   const historySessions = [...filteredSessions].reverse()
+  const sessionsUntilTrend = getSessionsUntilTrend(sessions.length)
 
   useEffect(() => {
     if (!chartSessions.some((session) => session.id === activeSessionId)) {
@@ -343,7 +349,7 @@ export function ExerciseProgressPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6 md:px-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
         <Button
           asChild
           className="rounded-md border-2 border-border bg-card shadow-brutal"
@@ -354,17 +360,6 @@ export function ExerciseProgressPage({
             Volver
           </Link>
         </Button>
-        {hasEnoughHistory ? (
-          <Badge
-            className={cn(
-              "rounded-md border px-2 py-1 text-[11px] font-bold uppercase tracking-wide",
-              getTrendBadgeClassName(trendLabel)
-            )}
-            variant="outline"
-          >
-            {trendLabel}
-          </Badge>
-        ) : null}
       </div>
 
       <Card className="rounded-xl">
@@ -489,39 +484,64 @@ export function ExerciseProgressPage({
             <CardHeader className="border-b-2 border-border">
               <CardTitle className="text-lg">Resumen</CardTitle>
               <CardDescription>
-                {hasEnoughHistory
-                  ? "Indicadores históricos para la métrica seleccionada."
-                  : "Cuando llegues a 6 sesiones verás la tendencia de este ejercicio."}
+                Indicadores históricos para la métrica seleccionada.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 pt-4">
-              <ProgressStatCard
-                label="Último valor"
-                value={formatProgressMetricValue(
-                  selectedMetric,
-                  lastMetricValue
+            <CardContent className="space-y-3 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <ProgressStatCard
+                  label="Último valor"
+                  value={formatProgressMetricValue(
+                    selectedMetric,
+                    lastMetricValue
+                  )}
+                />
+                <ProgressStatCard
+                  label="Récord"
+                  value={formatProgressMetricValue(selectedMetric, recordValue)}
+                />
+                <ProgressStatCard
+                  label="Última mejora"
+                  value={formatImprovementDate(
+                    lastImprovementSession?.performedAt ?? null
+                  )}
+                />
+                <ProgressStatCard
+                  label="Sin mejorar"
+                  value={
+                    sessionsSinceImprovement === null
+                      ? "Sin datos"
+                      : sessionsSinceImprovement === 1
+                        ? "1 sesión"
+                        : `${sessionsSinceImprovement} sesiones`
+                  }
+                />
+              </div>
+
+              <div className="rounded-lg border-2 border-border bg-card px-3 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  Tendencia
+                </div>
+                {hasEnoughHistory ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge
+                      className={cn(
+                        "rounded-md border px-2 py-1 text-[11px] font-bold uppercase tracking-wide",
+                        getTrendBadgeClassName(trendLabel)
+                      )}
+                      variant="outline"
+                    >
+                      {trendLabel}
+                    </Badge>
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm text-foreground">
+                    {sessionsUntilTrend === 1
+                      ? "Falta 1 sesión para ver la tendencia."
+                      : `Faltan ${sessionsUntilTrend} sesiones para ver la tendencia.`}
+                  </div>
                 )}
-              />
-              <ProgressStatCard
-                label="Récord"
-                value={formatProgressMetricValue(selectedMetric, recordValue)}
-              />
-              <ProgressStatCard
-                label="Última mejora"
-                value={formatImprovementDate(
-                  lastImprovementSession?.performedAt ?? null
-                )}
-              />
-              <ProgressStatCard
-                label="Sin mejorar"
-                value={
-                  sessionsSinceImprovement === null
-                    ? "Sin datos"
-                    : sessionsSinceImprovement === 1
-                      ? "1 sesión"
-                      : `${sessionsSinceImprovement} sesiones`
-                }
-              />
+              </div>
             </CardContent>
           </Card>
 
