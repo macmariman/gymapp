@@ -1,16 +1,23 @@
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { workoutSeedData } from '../src/lib/workouts/seed-data.js';
+import "dotenv/config"
 
-const prisma = new PrismaClient();
+import { PrismaClient } from "@prisma/client"
+
+import { workoutSeedData } from "../src/lib/workouts/seed-data.js"
+
+const prisma = new PrismaClient()
+
+function buildMovementSlug(name: string, logType: string) {
+  return `${name.trim().toLowerCase().replace(/\s+/g, "-")}-${logType}`
+}
 
 async function main() {
-  await prisma.exerciseSetLog.deleteMany();
-  await prisma.workoutSession.deleteMany();
-  await prisma.exercise.deleteMany();
-  await prisma.exerciseGroup.deleteMany();
-  await prisma.routineSection.deleteMany();
-  await prisma.routine.deleteMany();
+  await prisma.exerciseSetLog.deleteMany()
+  await prisma.workoutSession.deleteMany()
+  await prisma.exercise.deleteMany()
+  await prisma.exerciseMovement.deleteMany()
+  await prisma.exerciseGroup.deleteMany()
+  await prisma.routineSection.deleteMany()
+  await prisma.routine.deleteMany()
 
   for (const [routineIndex, routine] of workoutSeedData.entries()) {
     await prisma.routine.create({
@@ -34,23 +41,41 @@ async function main() {
                     targetValue: exercise.targetValue,
                     note: exercise.note,
                     logType: exercise.logType,
-                    sortOrder: exerciseIndex
-                  }))
-                }
-              }))
-            }
-          }))
-        }
-      }
-    });
+                    sortOrder: exerciseIndex,
+                    movement: {
+                      connectOrCreate: {
+                        where: {
+                          slug: buildMovementSlug(
+                            exercise.name,
+                            exercise.logType
+                          ),
+                        },
+                        create: {
+                          name: exercise.name,
+                          slug: buildMovementSlug(
+                            exercise.name,
+                            exercise.logType
+                          ),
+                          logType: exercise.logType,
+                        },
+                      },
+                    },
+                  })),
+                },
+              })),
+            },
+          })),
+        },
+      },
+    })
   }
 }
 
 main()
   .catch((error) => {
-    console.error(error);
-    process.exit(1);
+    console.error(error)
+    process.exit(1)
   })
   .finally(async () => {
-    await prisma.$disconnect();
-  });
+    await prisma.$disconnect()
+  })

@@ -38,6 +38,7 @@ const workoutPageData: WorkoutPageData = {
               exercises: [
                 {
                   id: "exercise-1",
+                  movementId: "movement-1",
                   name: "Pecho plano con barra",
                   targetType: "reps",
                   targetValue: 10,
@@ -48,6 +49,7 @@ const workoutPageData: WorkoutPageData = {
                 },
                 {
                   id: "exercise-2",
+                  movementId: "movement-2",
                   name: "Fondo tríceps en banco",
                   targetType: "reps",
                   targetValue: 10,
@@ -66,6 +68,7 @@ const workoutPageData: WorkoutPageData = {
               exercises: [
                 {
                   id: "exercise-4",
+                  movementId: "movement-4",
                   name: "Aperturas con mancuernas",
                   targetType: "reps",
                   targetValue: 12,
@@ -98,6 +101,7 @@ const workoutPageData: WorkoutPageData = {
               exercises: [
                 {
                   id: "exercise-3",
+                  movementId: "movement-3",
                   name: "Remo con barra",
                   targetType: "reps",
                   targetValue: 12,
@@ -126,6 +130,7 @@ describe("WorkoutApp", () => {
 
   beforeEach(() => {
     scrollIntoViewMock.mockReset()
+    window.history.pushState({}, "", "/")
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: scrollIntoViewMock,
@@ -147,9 +152,15 @@ describe("WorkoutApp", () => {
     expect(screen.getAllByText("Bloque 1").length).toBeGreaterThan(0)
     expect(screen.getAllByText("3 series").length).toBeGreaterThan(0)
     expect(screen.getAllByText("10 rep").length).toBeGreaterThan(0)
-    expect(screen.getByLabelText("Fondo tríceps en banco serie 1")).toBeInTheDocument()
-    expect(screen.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
-    expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue("62.5")
+    expect(
+      screen.getByLabelText("Fondo tríceps en banco serie 1")
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Pecho plano con barra serie 1")).toHaveValue(
+      "60"
+    )
+    expect(screen.getByLabelText("Pecho plano con barra serie 2")).toHaveValue(
+      "62.5"
+    )
 
     const firstSeriesContainer = screen
       .getAllByText("Serie 1")[0]
@@ -158,10 +169,26 @@ describe("WorkoutApp", () => {
     expect(firstSeriesContainer).not.toBeNull()
 
     const firstSeriesScope = within(firstSeriesContainer as HTMLElement)
-    expect(firstSeriesScope.getByText("Pecho plano con barra")).toBeInTheDocument()
-    expect(firstSeriesScope.getByText("Fondo tríceps en banco")).toBeInTheDocument()
-    expect(firstSeriesScope.getByLabelText("Pecho plano con barra serie 1")).toHaveValue("60")
-    expect(firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")).toHaveValue("")
+    expect(
+      firstSeriesScope.getByText("Pecho plano con barra")
+    ).toBeInTheDocument()
+    expect(
+      firstSeriesScope.getByText("Fondo tríceps en banco")
+    ).toBeInTheDocument()
+    expect(
+      firstSeriesScope.getByLabelText("Pecho plano con barra serie 1")
+    ).toHaveValue("60")
+    expect(
+      firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
+    ).toHaveValue("")
+    expect(
+      screen.getAllByRole("link", {
+        name: "Ver progreso de Pecho plano con barra",
+      })[0]
+    ).toHaveAttribute(
+      "href",
+      "/progress/movement-1?routineId=routine-1&slotId=exercise-1"
+    )
   })
 
   it("suggests the next routine not completed in the current week", () => {
@@ -193,12 +220,28 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Remo con barra serie 1")).toHaveValue("50")
   })
 
+  it("restores the routine from the query string when coming back from progress", () => {
+    window.history.pushState({}, "", "/?routineId=routine-2&slotId=exercise-3")
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    expect(screen.getAllByText("Rutina 2").length).toBeGreaterThan(0)
+    expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    })
+  })
+
   it("submits a session with weights and shows success feedback", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.clear(screen.getByLabelText("Pecho plano con barra serie 1"))
-    await user.type(screen.getByLabelText("Pecho plano con barra serie 1"), "62.5")
+    await user.type(
+      screen.getByLabelText("Pecho plano con barra serie 1"),
+      "62.5"
+    )
     await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
 
     await waitFor(() => {
@@ -221,9 +264,7 @@ describe("WorkoutApp", () => {
 
     await user.click(screen.getAllByRole("button", { name: "Intercambiar" })[0])
 
-    expect(
-      screen.getByText("Intercambiar ejercicio")
-    ).toBeInTheDocument()
+    expect(screen.getByText("Intercambiar ejercicio")).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: /pecho plano con barra/i })
     ).not.toBeInTheDocument()
@@ -232,8 +273,12 @@ describe("WorkoutApp", () => {
       screen.getByRole("button", { name: /aperturas con mancuernas/i })
     )
 
-    expect(screen.getAllByText("Aperturas con mancuernas").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Pecho plano con barra").length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText("Aperturas con mancuernas").length
+    ).toBeGreaterThan(0)
+    expect(screen.getAllByText("Pecho plano con barra").length).toBeGreaterThan(
+      0
+    )
     expect(screen.getAllByText("Swap").length).toBeGreaterThan(0)
 
     // After swap, "Pecho plano" moves to Bloque 2 (4 series), so serie 4 input exists
@@ -319,9 +364,7 @@ describe("WorkoutApp", () => {
       block: "start",
     })
     expect(screen.getAllByText("Bloque 2").length).toBeGreaterThan(0)
-    expect(
-      screen.getByLabelText("Remo con barra serie 1")
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
     expect(screen.getByLabelText("Remo con barra serie 1")).toHaveValue("50")
   })
 })

@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useEffect, useRef, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowRightLeft,
   CalendarDays,
@@ -21,8 +22,8 @@ import {
   formatTarget,
 } from "@/lib/workouts/formatting"
 import type {
-  ExerciseLogType,
   ExerciseGroupView,
+  ExerciseLogType,
   RoutineSummary,
   RoutineWithStructure,
   WorkoutPageData,
@@ -68,7 +69,10 @@ type SessionGroupView = Omit<ExerciseGroupView, "exercises"> & {
   exercises: SessionExerciseView[]
 }
 
-type SessionRoutineSectionView = Omit<RoutineWithStructure["sections"][number], "groups"> & {
+type SessionRoutineSectionView = Omit<
+  RoutineWithStructure["sections"][number],
+  "groups"
+> & {
   groups: SessionGroupView[]
 }
 
@@ -112,24 +116,29 @@ function buildWeightInputKey(exerciseId: string, setNumber: number) {
   return `${exerciseId}:${setNumber}`
 }
 
-function buildInitialSlotAssignments(routine: RoutineWithStructure | undefined) {
+function buildInitialSlotAssignments(
+  routine: RoutineWithStructure | undefined
+) {
   if (!routine) {
     return {}
   }
 
-  return routine.sections.reduce<SlotAssignments>((sectionAccumulator, section) => {
-    section.groups.forEach((group) => {
-      group.exercises.forEach((exercise) => {
-        if (!isExerciseLoggable(exercise.logType)) {
-          return
-        }
+  return routine.sections.reduce<SlotAssignments>(
+    (sectionAccumulator, section) => {
+      section.groups.forEach((group) => {
+        group.exercises.forEach((exercise) => {
+          if (!isExerciseLoggable(exercise.logType)) {
+            return
+          }
 
-        sectionAccumulator[exercise.id] = exercise.id
+          sectionAccumulator[exercise.id] = exercise.id
+        })
       })
-    })
 
-    return sectionAccumulator
-  }, {})
+      return sectionAccumulator
+    },
+    {}
+  )
 }
 
 function findSlotIdByAssignedExercise(
@@ -170,7 +179,8 @@ function buildSessionRoutine(
         exercises: group.exercises
           .filter((exercise) => isExerciseLoggable(exercise.logType))
           .map((exercise) => {
-            const assignedExerciseId = slotAssignments[exercise.id] ?? exercise.id
+            const assignedExerciseId =
+              slotAssignments[exercise.id] ?? exercise.id
             const assignedExercise =
               exerciseById.get(assignedExerciseId) ?? exercise
 
@@ -213,27 +223,31 @@ function buildInitialValues(routine: RoutineWithStructure | undefined) {
     return {}
   }
 
-  return routine.sections.reduce<Record<string, string>>((sectionAccumulator, section) => {
-    section.groups.forEach((group) => {
-      group.exercises.forEach((exercise) => {
-        if (!isExerciseLoggable(exercise.logType)) {
-          return
-        }
-
-        exercise.lastLogValues.forEach((value, index) => {
-          const setNumber = index + 1
-
-          if (setNumber > group.series) {
+  return routine.sections.reduce<Record<string, string>>(
+    (sectionAccumulator, section) => {
+      section.groups.forEach((group) => {
+        group.exercises.forEach((exercise) => {
+          if (!isExerciseLoggable(exercise.logType)) {
             return
           }
 
-          sectionAccumulator[buildWeightInputKey(exercise.id, setNumber)] = value
+          exercise.lastLogValues.forEach((value, index) => {
+            const setNumber = index + 1
+
+            if (setNumber > group.series) {
+              return
+            }
+
+            sectionAccumulator[buildWeightInputKey(exercise.id, setNumber)] =
+              value
+          })
         })
       })
-    })
 
-    return sectionAccumulator
-  }, {})
+      return sectionAccumulator
+    },
+    {}
+  )
 }
 
 function getWeekStart(date: Date) {
@@ -300,7 +314,9 @@ function RoutineList({
   return (
     <Card>
       <CardHeader className="border-b-2 border-border">
-        <CardTitle className="text-lg uppercase tracking-wide">Rutinas</CardTitle>
+        <CardTitle className="text-lg uppercase tracking-wide">
+          Rutinas
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 pt-3">
         {routines.map((routine) => (
@@ -319,7 +335,9 @@ function RoutineList({
               <div className="text-sm font-bold text-foreground">
                 {routine.name}
               </div>
-              <div className="text-xs text-muted-foreground">{routine.summary}</div>
+              <div className="text-xs text-muted-foreground">
+                {routine.summary}
+              </div>
             </div>
             <ChevronRight className="size-5 text-foreground" />
           </button>
@@ -632,7 +650,8 @@ function ExerciseSwapDialog({
             ...group,
             exercises: group.exercises.filter(
               (exercise) =>
-                exercise.slotId !== sourceExercise?.slotId && !exercise.isSwapped
+                exercise.slotId !== sourceExercise?.slotId &&
+                !exercise.isSwapped
             ),
           }))
           .filter((group) => group.exercises.length > 0),
@@ -641,7 +660,10 @@ function ExerciseSwapDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent aria-describedby={undefined} className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl">
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl"
+      >
         <DialogHeader className="space-y-3 border-b-2 border-border px-4 py-4 text-left">
           <DialogTitle className="text-lg font-bold uppercase tracking-wide">
             Intercambiar ejercicio
@@ -705,6 +727,7 @@ function ExerciseSwapDialog({
 
 function SessionPanel({
   routine,
+  selectedRoutineId,
   note,
   isPending,
   values,
@@ -716,6 +739,7 @@ function SessionPanel({
   panelRef,
 }: {
   routine: SessionRoutineWithStructure
+  selectedRoutineId: string
   note: string
   isPending: boolean
   values: Record<string, string>
@@ -748,7 +772,6 @@ function SessionPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-
         {hasWeightedGroups ? (
           <>
             {routine.sections.map((section) => {
@@ -813,9 +836,16 @@ function SessionPanel({
                                       setNumber
                                     )
                                     const inputId = `${inputKey}-input`
+                                    const exerciseAnchorId = `exercise-slot-${exercise.slotId}`
+                                    const shouldSetAnchor = setNumber === 1
 
                                     return (
                                       <div
+                                        id={
+                                          shouldSetAnchor
+                                            ? exerciseAnchorId
+                                            : undefined
+                                        }
                                         key={inputKey}
                                         className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 min-h-[44px]"
                                       >
@@ -843,19 +873,23 @@ function SessionPanel({
                                           </button>
                                           <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-1.5">
-                                              <label
-                                                className="text-sm font-bold text-foreground"
-                                                htmlFor={inputId}
+                                              <Link
+                                                aria-label={`Ver progreso de ${exercise.name}`}
+                                                className="rounded-md px-1 py-0.5 -mx-1 text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                href={`/progress/${exercise.movementId}?routineId=${selectedRoutineId}&slotId=${exercise.slotId}`}
                                               >
                                                 {exercise.name}
-                                              </label>
+                                                <span className="ml-1.5 font-normal text-muted-foreground">
+                                                  &gt;
+                                                </span>
+                                              </Link>
                                               {exercise.isSwapped ? (
                                                 <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
                                                   Swap
                                                 </Badge>
                                               ) : null}
                                             </div>
-                                            <span className="block text-xs text-muted-foreground">
+                                            <span className="mt-0.5 block text-xs text-muted-foreground">
                                               {formatTarget(exercise)}
                                             </span>
                                           </div>
@@ -868,9 +902,7 @@ function SessionPanel({
                                             exercise.logType
                                           )}
                                           onFocus={(event) => {
-                                            if (
-                                              event.target.value.length > 0
-                                            ) {
+                                            if (event.target.value.length > 0) {
                                               event.target.select()
                                             }
                                           }}
@@ -942,9 +974,19 @@ export function WorkoutApp({
   history,
 }: WorkoutPageData) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const requestedRoutineId = searchParams.get("routineId")
+  const requestedSlotId = searchParams.get("slotId")
+  const preferredRoutineId =
+    requestedRoutineId !== null &&
+    routines.some((routine) => routine.id === requestedRoutineId)
+      ? requestedRoutineId
+      : null
   const [selectedRoutineId, setSelectedRoutineId] = useState(() =>
-    getSuggestedRoutineId(routines, history)
+    preferredRoutineId
+      ? preferredRoutineId
+      : getSuggestedRoutineId(routines, history)
   )
   const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
   const [note, setNote] = useState("")
@@ -972,6 +1014,12 @@ export function WorkoutApp({
   )
 
   useEffect(() => {
+    if (preferredRoutineId) {
+      setSelectedRoutineId(preferredRoutineId)
+    }
+  }, [preferredRoutineId])
+
+  useEffect(() => {
     setValues(buildInitialValues(selectedRoutine))
     setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
     setSwapSourceSlotId(null)
@@ -994,6 +1042,16 @@ export function WorkoutApp({
     })
     setShouldScrollToRoutine(false)
   }, [selectedRoutineId, shouldScrollToRoutine])
+
+  useEffect(() => {
+    if (!requestedSlotId || !selectedRoutine) {
+      return
+    }
+
+    document
+      .getElementById(`exercise-slot-${requestedSlotId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [requestedSlotId, selectedRoutine])
 
   useEffect(() => {
     if (status.type !== "success") {
@@ -1024,10 +1082,8 @@ export function WorkoutApp({
         return currentAssignments
       }
 
-      const sourceExerciseId =
-        currentAssignments[sourceSlotId] ?? sourceSlotId
-      const targetExerciseId =
-        currentAssignments[targetSlotId] ?? targetSlotId
+      const sourceExerciseId = currentAssignments[sourceSlotId] ?? sourceSlotId
+      const targetExerciseId = currentAssignments[targetSlotId] ?? targetSlotId
 
       return {
         ...currentAssignments,
@@ -1223,6 +1279,7 @@ export function WorkoutApp({
               }
               panelRef={sessionPanelRef}
               routine={sessionRoutine}
+              selectedRoutineId={selectedRoutineId}
               values={values}
             />
           ) : null}
