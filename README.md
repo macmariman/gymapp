@@ -70,8 +70,8 @@ Open [http://localhost:3000](http://localhost:3000).
 Use Neon PostgreSQL in Vercel. Configure these environment variables:
 
 ```bash
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
-DIRECT_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+POSTGRES_PRISMA_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
+POSTGRES_URL_NON_POOLING="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
 ```
 
 Then run:
