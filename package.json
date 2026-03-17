@@ -15,8 +15,7 @@
     "test:watch": "jest --watch --passWithNoTests",
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:ci": "jest --ci --coverage --watchAll=false --passWithNoTests",
-    "db:seed": "prisma db seed",
-    "db:insert-cardio": "node prisma/insert-cardio.mjs"
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

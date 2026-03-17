@@ -86,7 +86,6 @@ For production deployments on Vercel:
 
 - `vercel-build` already runs `prisma generate && prisma migrate deploy && next build`
 - do not run `npx prisma migrate deploy` manually as part of the normal Vercel deploy flow
-- run one-off data scripts separately after the deploy if needed, for example `npm run db:insert-cardio`
 
 ## Available Scripts
 
@@ -101,7 +100,6 @@ npm run test:watch
 npm run test:coverage
 npm run test:ci
 npm run db:seed
-npm run db:insert-cardio
 npm run format
 npm run check
 ```
