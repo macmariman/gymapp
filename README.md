@@ -58,7 +58,7 @@ Workout tracking app built with Next.js App Router, TypeScript, Tailwind CSS, sh
 ```bash
 npm install
 cp .env.example .env
-npx prisma migrate deploy
+npx prisma migrate dev
 npm run db:seed
 npm run dev
 ```
@@ -74,13 +74,19 @@ POSTGRES_PRISMA_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=requir
 POSTGRES_URL_NON_POOLING="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
 ```
 
-Then run:
+For local development, run:
 
 ```bash
 npx prisma generate
-npx prisma migrate deploy
+npx prisma migrate dev
 npm run db:seed
 ```
+
+For production deployments on Vercel:
+
+- `vercel-build` already runs `prisma generate && prisma migrate deploy && next build`
+- do not run `npx prisma migrate deploy` manually as part of the normal Vercel deploy flow
+- run one-off data scripts separately after the deploy if needed, for example `npm run db:insert-cardio`
 
 ## Available Scripts
 
@@ -94,6 +100,8 @@ npm run test
 npm run test:watch
 npm run test:coverage
 npm run test:ci
+npm run db:seed
+npm run db:insert-cardio
 npm run format
 npm run check
 ```

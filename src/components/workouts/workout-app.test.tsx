@@ -27,6 +27,32 @@ const workoutPageData: WorkoutPageData = {
       lastSessionAt: "2026-03-10T10:00:00.000Z",
       sections: [
         {
+          id: "section-0",
+          name: "Zona media",
+          groups: [
+            {
+              id: "group-0",
+              name: "Zona media",
+              sectionName: "Zona media",
+              series: 1,
+              exercises: [
+                {
+                  id: "exercise-0",
+                  movementId: "movement-0",
+                  name: "Plancha ventral",
+                  targetType: "time",
+                  targetValue: 30,
+                  note: null,
+                  logType: "time",
+                  durationFormat: "seconds",
+                  lastLogSummary: "30 s",
+                  lastLogValues: ["30"],
+                },
+              ],
+            },
+          ],
+        },
+        {
           id: "section-1",
           name: "Fuerza",
           groups: [
@@ -44,6 +70,7 @@ const workoutPageData: WorkoutPageData = {
                   targetValue: 10,
                   note: null,
                   logType: "weight",
+                  durationFormat: "seconds",
                   lastLogSummary: "60 kg / 62.5 kg",
                   lastLogValues: ["60", "62.5"],
                 },
@@ -55,6 +82,7 @@ const workoutPageData: WorkoutPageData = {
                   targetValue: 10,
                   note: null,
                   logType: "reps",
+                  durationFormat: "seconds",
                   lastLogSummary: null,
                   lastLogValues: [],
                 },
@@ -74,8 +102,35 @@ const workoutPageData: WorkoutPageData = {
                   targetValue: 12,
                   note: null,
                   logType: "weight",
+                  durationFormat: "seconds",
                   lastLogSummary: "18 kg / 18 kg / 16 kg / 14 kg",
                   lastLogValues: ["18", "18", "16", "14"],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: "section-cardio-1",
+          name: "Cardio",
+          groups: [
+            {
+              id: "group-cardio-1",
+              name: "Cardio",
+              sectionName: "Cardio",
+              series: 1,
+              exercises: [
+                {
+                  id: "exercise-run-1",
+                  movementId: "movement-run",
+                  name: "Correr",
+                  targetType: "time",
+                  targetValue: 900,
+                  note: null,
+                  logType: "time",
+                  durationFormat: "mmss",
+                  lastLogSummary: "15:00",
+                  lastLogValues: ["15:00"],
                 },
               ],
             },
@@ -107,6 +162,7 @@ const workoutPageData: WorkoutPageData = {
                   targetValue: 12,
                   note: null,
                   logType: "weight",
+                  durationFormat: "seconds",
                   lastLogSummary: "50 kg / 52.5 kg",
                   lastLogValues: ["50", "52.5"],
                 },
@@ -163,7 +219,7 @@ describe("WorkoutApp", () => {
     )
 
     const firstSeriesContainer = screen
-      .getAllByText("Serie 1")[0]
+      .getByLabelText("Pecho plano con barra serie 1")
       .closest("div.space-y-1")
 
     expect(firstSeriesContainer).not.toBeNull()
@@ -181,6 +237,13 @@ describe("WorkoutApp", () => {
     expect(
       firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
     ).toHaveValue("")
+    expect(screen.getByText("30 s")).toBeInTheDocument()
+    expect(screen.getByText("15:00")).toBeInTheDocument()
+    expect(screen.getByLabelText("Correr serie 1")).toHaveAttribute(
+      "placeholder",
+      "mm:ss"
+    )
+    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("15:00")
     expect(
       screen.getAllByRole("link", {
         name: "Ver progreso de Pecho plano con barra",
@@ -258,11 +321,59 @@ describe("WorkoutApp", () => {
     ).toBeInTheDocument()
   })
 
+  it("masks the running input as mm:ss from numeric typing", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    const runningInput = screen.getByLabelText("Correr serie 1")
+
+    await user.clear(runningInput)
+    await user.type(runningInput, "1234")
+
+    expect(runningInput).toHaveValue("12:34")
+
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    const [, request] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const payload = JSON.parse(String(request.body)) as {
+      setLogs: Array<{
+        exerciseId: string
+        value: string
+      }>
+    }
+
+    expect(payload.setLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: "exercise-run-1",
+          value: "12:34",
+        }),
+      ])
+    )
+  })
+
   it("swaps exercises inside the same routine and can undo the swap", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
-    await user.click(screen.getAllByRole("button", { name: "Intercambiar" })[0])
+    const pechoRow = screen
+      .getByLabelText("Pecho plano con barra serie 1")
+      .closest("div.grid")
+
+    expect(pechoRow).not.toBeNull()
+
+    await user.click(
+      within(pechoRow as HTMLElement).getByRole("button", {
+        name: "Intercambiar",
+      })
+    )
 
     expect(screen.getByText("Intercambiar ejercicio")).toBeInTheDocument()
     expect(
@@ -286,8 +397,16 @@ describe("WorkoutApp", () => {
       screen.getByLabelText("Pecho plano con barra serie 4")
     ).toBeInTheDocument()
 
+    const swappedRow = screen
+      .getByLabelText("Aperturas con mancuernas serie 1")
+      .closest("div.grid")
+
+    expect(swappedRow).not.toBeNull()
+
     await user.click(
-      screen.getAllByRole("button", { name: "Deshacer intercambio" })[0]
+      within(swappedRow as HTMLElement).getByRole("button", {
+        name: "Deshacer intercambio",
+      })
     )
 
     // After undo, "Pecho plano" is back in Bloque 1 (3 series), so serie 4 input is gone
@@ -302,7 +421,17 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
-    await user.click(screen.getAllByRole("button", { name: "Intercambiar" })[0])
+    const pechoRow = screen
+      .getByLabelText("Pecho plano con barra serie 1")
+      .closest("div.grid")
+
+    expect(pechoRow).not.toBeNull()
+
+    await user.click(
+      within(pechoRow as HTMLElement).getByRole("button", {
+        name: "Intercambiar",
+      })
+    )
     await user.click(
       screen.getByRole("button", { name: /aperturas con mancuernas/i })
     )

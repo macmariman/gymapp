@@ -1,11 +1,12 @@
 import {
-  formatDuration,
+  formatDurationWithFormat,
   formatLogSummary,
   formatReps,
   formatSessionDate,
   formatWeight,
 } from "@/lib/workouts/formatting"
 import type {
+  ExerciseDurationFormat,
   ExerciseLogType,
   ExerciseProgressMetricKey,
   ExerciseProgressMetricOption,
@@ -43,22 +44,27 @@ const REPS_METRICS: ExerciseProgressMetricOption[] = [
   },
 ]
 
-const TIME_METRICS: ExerciseProgressMetricOption[] = [
-  {
-    key: "longestSetSeconds",
-    label: "Mayor tiempo",
-    shortLabel: "Mayor tiempo",
-    unit: "s",
-  },
-  {
-    key: "totalTimeSeconds",
-    label: "Tiempo total",
-    shortLabel: "Tiempo total",
-    unit: "s",
-  },
-]
+function getTimeMetrics(durationFormat: ExerciseDurationFormat) {
+  return [
+    {
+      key: "longestSetSeconds",
+      label: "Mayor tiempo",
+      shortLabel: "Mayor tiempo",
+      unit: durationFormat === "mmss" ? "mm:ss" : "s",
+    },
+    {
+      key: "totalTimeSeconds",
+      label: "Tiempo total",
+      shortLabel: "Tiempo total",
+      unit: durationFormat === "mmss" ? "mm:ss" : "s",
+    },
+  ] satisfies ExerciseProgressMetricOption[]
+}
 
-function getMetricFormatter(metricKey: ExerciseProgressMetricKey) {
+function getMetricFormatter(
+  metricKey: ExerciseProgressMetricKey,
+  durationFormat: ExerciseDurationFormat = "seconds"
+) {
   if (metricKey === "maxLoad") {
     return formatWeight
   }
@@ -68,7 +74,8 @@ function getMetricFormatter(metricKey: ExerciseProgressMetricKey) {
   }
 
   if (metricKey === "longestSetSeconds" || metricKey === "totalTimeSeconds") {
-    return formatDuration
+    return (value: string | number) =>
+      formatDurationWithFormat(value, durationFormat)
   }
 
   return (value: string | number) => {
@@ -92,13 +99,16 @@ export function getMovementDetail(logType: Exclude<ExerciseLogType, "none">) {
   return "Seguimiento por repeticiones"
 }
 
-export function getAvailableProgressMetrics(logType: ExerciseLogType) {
+export function getAvailableProgressMetrics(
+  logType: ExerciseLogType,
+  durationFormat: ExerciseDurationFormat = "seconds"
+) {
   if (logType === "weight") {
     return WEIGHT_METRICS
   }
 
   if (logType === "time") {
-    return TIME_METRICS
+    return getTimeMetrics(durationFormat)
   }
 
   return REPS_METRICS
@@ -117,13 +127,14 @@ export function getMetricValue(
 
 export function formatProgressMetricValue(
   metricKey: ExerciseProgressMetricKey,
-  value: number | null
+  value: number | null,
+  durationFormat: ExerciseDurationFormat = "seconds"
 ) {
   if (value === null) {
     return "Sin datos"
   }
 
-  return getMetricFormatter(metricKey)(value)
+  return getMetricFormatter(metricKey, durationFormat)(value)
 }
 
 export function getRangeLabel(range: ExerciseProgressRangeKey) {
@@ -168,9 +179,10 @@ export function filterSessionsByRange(
 
 export function buildSessionSetSummary(
   logType: Exclude<ExerciseLogType, "none">,
-  values: number[]
+  values: number[],
+  durationFormat: ExerciseDurationFormat = "seconds"
 ) {
-  return formatLogSummary(logType, values)
+  return formatLogSummary(logType, values, durationFormat)
 }
 
 export function getRecordValue(

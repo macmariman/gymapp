@@ -10,6 +10,7 @@ const insufficientProgressPageData: ExerciseProgressPageData = {
     slug: "press-banca-weight",
     name: "Press banca",
     logType: "weight",
+    durationFormat: "seconds",
     detail: "Seguimiento por carga",
   },
   availableMetrics: [
@@ -189,5 +190,52 @@ describe("ExerciseProgressPage", () => {
 
     expect(screen.getByText("5 sesiones visibles")).toBeInTheDocument()
     expect(screen.queryByText("10 de octubre de 2025")).not.toBeInTheDocument()
+  })
+
+  it("renders time metrics in mm:ss when the movement requires it", () => {
+    render(
+      <ExerciseProgressPage
+        backHref="/?routineId=routine-1"
+        movement={{
+          id: "movement-run",
+          slug: "correr-time",
+          name: "Correr",
+          logType: "time",
+          durationFormat: "mmss",
+          detail: "Seguimiento por tiempo",
+        }}
+        availableMetrics={[
+          {
+            key: "longestSetSeconds",
+            label: "Mayor tiempo",
+            shortLabel: "Mayor tiempo",
+            unit: "mm:ss",
+          },
+          {
+            key: "totalTimeSeconds",
+            label: "Tiempo total",
+            shortLabel: "Tiempo total",
+            unit: "mm:ss",
+          },
+        ]}
+        sessions={[
+          {
+            id: "session-run-1",
+            routineId: "routine-1",
+            routineName: "Rutina 1",
+            performedAt: "2026-03-10T10:00:00.000Z",
+            note: null,
+            setSummary: "15:00",
+            sets: [],
+            metrics: {
+              longestSetSeconds: 900,
+              totalTimeSeconds: 900,
+            },
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getAllByText("15:00").length).toBeGreaterThan(0)
   })
 })

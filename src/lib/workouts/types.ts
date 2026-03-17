@@ -1,5 +1,6 @@
 export type ExerciseMetricType = "reps" | "weight" | "time"
 export type ExerciseLogType = "none" | "reps" | "weight" | "time"
+export type ExerciseDurationFormat = "seconds" | "mmss"
 
 export type RoutineSummary = {
   id: string
@@ -16,6 +17,7 @@ export type ExerciseView = {
   targetValue: number
   note?: string | null
   logType: ExerciseLogType
+  durationFormat: ExerciseDurationFormat
   lastLogSummary: string | null
   lastLogValues: string[]
 }
@@ -103,6 +105,7 @@ export type ExerciseProgressMovement = {
   slug: string
   name: string
   logType: Exclude<ExerciseLogType, "none">
+  durationFormat: ExerciseDurationFormat
   detail: string
 }
 

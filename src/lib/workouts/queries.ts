@@ -3,7 +3,10 @@ import "server-only"
 import type { ExerciseLogType } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
-import { formatLogSummary } from "@/lib/workouts/formatting"
+import {
+  formatLogSummary,
+  formatValueForInput,
+} from "@/lib/workouts/formatting"
 import {
   buildSessionSetSummary,
   getAvailableProgressMetrics,
@@ -28,14 +31,29 @@ function getMonthBounds(date: Date) {
 }
 
 async function getLatestLogData(
-  exercises: Array<{ id: string; logType: ExerciseLogType }>
+  exercises: Array<{
+    id: string
+    movementId: string
+    logType: ExerciseLogType
+    durationFormat: "seconds" | "mmss"
+  }>
 ) {
   if (exercises.length === 0) {
     return new Map<string, { summary: string; values: string[] }>()
   }
 
-  const logTypeByExerciseId = new Map(
-    exercises.map((exercise) => [exercise.id, exercise.logType] as const)
+  const movementIdByExerciseId = new Map(
+    exercises.map((exercise) => [exercise.id, exercise.movementId] as const)
+  )
+  const logTypeByMovementId = new Map(
+    exercises.map(
+      (exercise) => [exercise.movementId, exercise.logType] as const
+    )
+  )
+  const durationFormatByMovementId = new Map(
+    exercises.map(
+      (exercise) => [exercise.movementId, exercise.durationFormat] as const
+    )
   )
 
   const setLogs = await prisma.exerciseSetLog.findMany({
@@ -63,22 +81,28 @@ async function getLatestLogData(
     },
   })
 
-  const sessionByExercise = new Map<string, string>()
-  const valuesByExercise = new Map<string, string[]>()
+  const sessionByMovement = new Map<string, string>()
+  const valuesByMovement = new Map<string, string[]>()
 
   for (const setLog of setLogs) {
-    const savedSessionId = sessionByExercise.get(setLog.exerciseId)
+    const movementId = movementIdByExerciseId.get(setLog.exerciseId)
 
-    if (!savedSessionId) {
-      sessionByExercise.set(setLog.exerciseId, setLog.sessionId)
-      valuesByExercise.set(setLog.exerciseId, [])
-    }
-
-    if (sessionByExercise.get(setLog.exerciseId) !== setLog.sessionId) {
+    if (!movementId) {
       continue
     }
 
-    const logType = logTypeByExerciseId.get(setLog.exerciseId)
+    const savedSessionId = sessionByMovement.get(movementId)
+
+    if (!savedSessionId) {
+      sessionByMovement.set(movementId, setLog.sessionId)
+      valuesByMovement.set(movementId, [])
+    }
+
+    if (sessionByMovement.get(movementId) !== setLog.sessionId) {
+      continue
+    }
+
+    const logType = logTypeByMovementId.get(movementId)
 
     if (!logType || logType === "none") {
       continue
@@ -95,23 +119,37 @@ async function getLatestLogData(
       continue
     }
 
-    valuesByExercise.get(setLog.exerciseId)?.push(value)
+    valuesByMovement.get(movementId)?.push(value)
   }
 
   return new Map(
-    [...valuesByExercise.entries()].map(([exerciseId, values]) => [
-      exerciseId,
-      {
-        summary: formatLogSummary(
-          logTypeByExerciseId.get(exerciseId) as Exclude<
-            ExerciseLogType,
-            "none"
-          >,
-          values
-        ),
-        values,
-      },
-    ])
+    exercises.map((exercise) => {
+      const values = valuesByMovement.get(exercise.movementId) ?? []
+
+      return [
+        exercise.id,
+        {
+          summary: formatLogSummary(
+            logTypeByMovementId.get(exercise.movementId) as Exclude<
+              ExerciseLogType,
+              "none"
+            >,
+            values,
+            durationFormatByMovementId.get(exercise.movementId)
+          ),
+          values: values.map((value) =>
+            formatValueForInput(
+              logTypeByMovementId.get(exercise.movementId) as Exclude<
+                ExerciseLogType,
+                "none"
+              >,
+              value,
+              durationFormatByMovementId.get(exercise.movementId)
+            )
+          ),
+        },
+      ] as const
+    })
   )
 }
 
@@ -173,6 +211,13 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
                 orderBy: {
                   sortOrder: "asc",
                 },
+                include: {
+                  movement: {
+                    select: {
+                      durationFormat: true,
+                    },
+                  },
+                },
               },
             },
           },
@@ -188,7 +233,9 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
           .filter((exercise) => exercise.logType !== "none")
           .map((exercise) => ({
             id: exercise.id,
+            movementId: exercise.movementId,
             logType: exercise.logType,
+            durationFormat: exercise.movement.durationFormat,
           }))
       )
     )
@@ -218,6 +265,7 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
             targetValue: exercise.targetValue,
             note: exercise.note,
             logType: exercise.logType,
+            durationFormat: exercise.movement.durationFormat,
             lastLogSummary: latestLogs.get(exercise.id)?.summary ?? null,
             lastLogValues: latestLogs.get(exercise.id)?.values ?? [],
           })),
@@ -278,6 +326,11 @@ export async function getWorkoutSessionHistory(): Promise<
               id: true,
               name: true,
               logType: true,
+              movement: {
+                select: {
+                  durationFormat: true,
+                },
+              },
             },
           },
         },
@@ -307,7 +360,11 @@ export async function getWorkoutSessionHistory(): Promise<
         exerciseMap.set(setLog.exerciseId, {
           exerciseId: setLog.exerciseId,
           exerciseName: setLog.exercise.name,
-          valueSummary: formatLogSummary(setLog.exercise.logType, [value]),
+          valueSummary: formatLogSummary(
+            setLog.exercise.logType,
+            [value],
+            setLog.exercise.movement.durationFormat
+          ),
           rawValues: [value],
         })
         continue
@@ -316,10 +373,11 @@ export async function getWorkoutSessionHistory(): Promise<
       exerciseMap.set(setLog.exerciseId, {
         ...savedExercise,
         rawValues: [...savedExercise.rawValues, value],
-        valueSummary: formatLogSummary(setLog.exercise.logType, [
-          ...savedExercise.rawValues,
-          value,
-        ]),
+        valueSummary: formatLogSummary(
+          setLog.exercise.logType,
+          [...savedExercise.rawValues, value],
+          setLog.exercise.movement.durationFormat
+        ),
       })
     }
 
@@ -350,6 +408,7 @@ export async function getExerciseProgressPageData(
       slug: true,
       name: true,
       logType: true,
+      durationFormat: true,
     },
   })
 
@@ -449,7 +508,11 @@ export async function getExerciseProgressPageData(
     routineName: session.routineName,
     performedAt: session.performedAt,
     note: session.note,
-    setSummary: buildSessionSetSummary(movementLogType, session.values),
+    setSummary: buildSessionSetSummary(
+      movementLogType,
+      session.values,
+      movement.durationFormat
+    ),
     sets: session.sets,
     metrics:
       movementLogType === "weight"
@@ -493,8 +556,12 @@ export async function getExerciseProgressPageData(
       name: movement.name,
       logType: movementLogType,
       detail: getMovementDetail(movementLogType),
+      durationFormat: movement.durationFormat,
     },
-    availableMetrics: getAvailableProgressMetrics(movementLogType),
+    availableMetrics: getAvailableProgressMetrics(
+      movementLogType,
+      movement.durationFormat
+    ),
     sessions,
   }
 }

@@ -186,11 +186,13 @@ function buildChartPoints(
 function ProgressChart({
   sessions,
   metricKey,
+  durationFormat,
   activeSessionId,
   onSelectSession,
 }: {
   sessions: ExerciseProgressSession[]
   metricKey: ExerciseProgressMetricKey
+  durationFormat: ExerciseProgressPageData["movement"]["durationFormat"]
   activeSessionId: string | null
   onSelectSession: (sessionId: string) => void
 }) {
@@ -276,7 +278,7 @@ function ProgressChart({
             x={CHART_PADDING.left}
             y={CHART_PADDING.top - 6}
           >
-            {formatProgressMetricValue(metricKey, maxValue)}
+            {formatProgressMetricValue(metricKey, maxValue, durationFormat)}
           </text>
           <text
             className="fill-muted-foreground text-[10px] font-bold"
@@ -284,7 +286,7 @@ function ProgressChart({
             x={CHART_PADDING.left}
             y={CHART_HEIGHT - CHART_PADDING.bottom - 6}
           >
-            {formatProgressMetricValue(metricKey, minValue)}
+            {formatProgressMetricValue(metricKey, minValue, durationFormat)}
           </text>
           {axisPoints.map((point) => (
             <text
@@ -440,6 +442,7 @@ export function ExerciseProgressPage({
             <CardContent className="space-y-3 pt-4">
               <ProgressChart
                 activeSessionId={activeSession?.id ?? null}
+                durationFormat={movement.durationFormat}
                 metricKey={selectedMetric}
                 onSelectSession={setActiveSessionId}
                 sessions={chartSessions}
@@ -460,7 +463,8 @@ export function ExerciseProgressPage({
                       <div className="text-sm font-bold text-foreground">
                         {formatProgressMetricValue(
                           selectedMetric,
-                          getMetricValue(activeSession, selectedMetric)
+                          getMetricValue(activeSession, selectedMetric),
+                          movement.durationFormat
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -493,12 +497,17 @@ export function ExerciseProgressPage({
                   label="Último valor"
                   value={formatProgressMetricValue(
                     selectedMetric,
-                    lastMetricValue
+                    lastMetricValue,
+                    movement.durationFormat
                   )}
                 />
                 <ProgressStatCard
                   label="Récord"
-                  value={formatProgressMetricValue(selectedMetric, recordValue)}
+                  value={formatProgressMetricValue(
+                    selectedMetric,
+                    recordValue,
+                    movement.durationFormat
+                  )}
                 />
                 <ProgressStatCard
                   label="Última mejora"
@@ -577,7 +586,8 @@ export function ExerciseProgressPage({
                       <div className="text-right text-sm font-bold text-foreground">
                         {formatProgressMetricValue(
                           selectedMetric,
-                          getMetricValue(session, selectedMetric)
+                          getMetricValue(session, selectedMetric),
+                          movement.durationFormat
                         )}
                       </div>
                     </div>

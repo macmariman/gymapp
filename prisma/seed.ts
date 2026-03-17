@@ -141,6 +141,7 @@ async function main() {
                             exercise.logType
                           ),
                           logType: exercise.logType,
+                          durationFormat: exercise.durationFormat ?? "seconds",
                         },
                       },
                     },

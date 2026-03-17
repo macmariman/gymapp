@@ -1,6 +1,7 @@
 import {
   filterSessionsByRange,
   formatImprovementDate,
+  formatProgressMetricValue,
   getAvailableProgressMetrics,
   getDefaultProgressMetric,
   getLastImprovementSession,
@@ -90,6 +91,7 @@ describe("progress helpers", () => {
   it("returns metric options and defaults by log type", () => {
     expect(getAvailableProgressMetrics("weight")).toHaveLength(2)
     expect(getDefaultProgressMetric("time")).toBe("longestSetSeconds")
+    expect(getAvailableProgressMetrics("time", "mmss")[0]?.unit).toBe("mm:ss")
   })
 
   it("calculates record, last improvement and sessions since the last improvement", () => {
@@ -120,5 +122,11 @@ describe("progress helpers", () => {
         new Date("2026-03-14T10:00:00.000Z")
       )
     ).toBe("Hace 4 días")
+  })
+
+  it("formats time metrics according to the configured duration format", () => {
+    expect(formatProgressMetricValue("longestSetSeconds", 900, "mmss")).toBe(
+      "15:00"
+    )
   })
 })

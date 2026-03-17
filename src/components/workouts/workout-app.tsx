@@ -16,6 +16,12 @@ import {
 
 import { cn } from "@/lib/utils"
 import {
+  formatDurationInputValue,
+  formatDurationMaskValue,
+  normalizeDurationMaskValue,
+  parseMinutesSeconds,
+} from "@/lib/workouts/duration"
+import {
   buildAttendanceGrid,
   formatRelativeSessionDate,
   formatSessionDate,
@@ -286,20 +292,61 @@ function isExerciseLoggable(logType: ExerciseLogType) {
   return logType !== "none"
 }
 
-function getInputPlaceholder(logType: ExerciseLogType) {
+function getInputPlaceholderForFormat(
+  logType: ExerciseLogType,
+  durationFormat: SessionExerciseView["durationFormat"]
+) {
   if (logType === "weight") {
     return "kg"
   }
 
   if (logType === "time") {
-    return "s"
+    return durationFormat === "mmss" ? "mm:ss" : "s"
   }
 
   return "rep"
 }
 
-function getInputMode(logType: ExerciseLogType) {
+function getInputModeForFormat(
+  logType: ExerciseLogType,
+  durationFormat: SessionExerciseView["durationFormat"]
+) {
+  if (logType === "time" && durationFormat === "mmss") {
+    return "numeric"
+  }
+
   return logType === "weight" ? "decimal" : "numeric"
+}
+
+function formatExerciseInputValue(
+  exercise: SessionExerciseView,
+  value: string
+) {
+  if (exercise.logType === "time" && exercise.durationFormat === "mmss") {
+    return formatDurationMaskValue(value)
+  }
+
+  return value
+}
+
+function normalizeExerciseInputValueOnBlur(
+  exercise: SessionExerciseView,
+  value: string
+) {
+  const trimmedValue = value.trim()
+
+  if (exercise.logType === "time" && exercise.durationFormat === "mmss") {
+    const maskedValue = normalizeDurationMaskValue(trimmedValue)
+    const parsedDuration = parseMinutesSeconds(maskedValue)
+
+    if (parsedDuration === null) {
+      return trimmedValue
+    }
+
+    return formatDurationInputValue(parsedDuration, exercise.durationFormat)
+  }
+
+  return trimmedValue
 }
 
 function RoutineList({
@@ -733,6 +780,7 @@ function SessionPanel({
   values,
   onNoteChange,
   onValueChange,
+  onValueBlur,
   onStartSwap,
   onUndoSwap,
   onSubmit,
@@ -745,6 +793,7 @@ function SessionPanel({
   values: Record<string, string>
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
+  onValueBlur: (key: string, value: string) => void
   onStartSwap: (slotId: string) => void
   onUndoSwap: (slotId: string) => void
   onSubmit: () => Promise<void>
@@ -896,11 +945,13 @@ function SessionPanel({
                                         </div>
                                         <input
                                           aria-label={`${exercise.name} serie ${setNumber}`}
-                                          className="h-8 w-14 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent"
-                                          id={inputId}
-                                          inputMode={getInputMode(
-                                            exercise.logType
+                                          className={cn(
+                                            "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
+                                            exercise.durationFormat === "mmss"
+                                              ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
+                                              : "w-14"
                                           )}
+                                          id={inputId}
                                           onFocus={(event) => {
                                             if (event.target.value.length > 0) {
                                               event.target.select()
@@ -909,11 +960,28 @@ function SessionPanel({
                                           onChange={(event) =>
                                             onValueChange(
                                               inputKey,
-                                              event.target.value
+                                              formatExerciseInputValue(
+                                                exercise,
+                                                event.target.value
+                                              )
                                             )
                                           }
-                                          placeholder={getInputPlaceholder(
-                                            exercise.logType
+                                          onBlur={(event) =>
+                                            onValueBlur(
+                                              inputKey,
+                                              normalizeExerciseInputValueOnBlur(
+                                                exercise,
+                                                event.target.value
+                                              )
+                                            )
+                                          }
+                                          placeholder={getInputPlaceholderForFormat(
+                                            exercise.logType,
+                                            exercise.durationFormat
+                                          )}
+                                          inputMode={getInputModeForFormat(
+                                            exercise.logType,
+                                            exercise.durationFormat
                                           )}
                                           value={values[inputKey] ?? ""}
                                         />
@@ -947,7 +1015,7 @@ function SessionPanel({
             </div>
 
             <Button
-              className="h-12 w-full rounded-md border-2 border-border bg-accent text-accent-foreground font-bold uppercase tracking-wide shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-12 w-full rounded-md border-2 border-border bg-accent text-accent-foreground font-bold uppercase tracking-wide shadow-brutal hover:bg-accent hover:text-accent-foreground hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-60"
               disabled={!hasWeightedGroups || isPending}
               onClick={() => {
                 void onSubmit()
@@ -1272,6 +1340,12 @@ export function WorkoutApp({
               onSubmit={handleSubmit}
               onUndoSwap={handleUndoSwap}
               onValueChange={(key, value) =>
+                setValues((currentValues) => ({
+                  ...currentValues,
+                  [key]: value,
+                }))
+              }
+              onValueBlur={(key, value) =>
                 setValues((currentValues) => ({
                   ...currentValues,
                   [key]: value,
