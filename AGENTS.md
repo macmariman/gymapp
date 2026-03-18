@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## UI verification workflow
+
+- The project includes a custom subagent named `browser_verifier`.
+- After finishing a significant UI change, a flow change, or a large visual refactor, remind the user to validate the result with `browser_verifier` with a possible prompt.
+- Use `browser_verifier` to verify local uncommitted changes against the running app. It should validate the primary flow, compare expected versus observed behavior, and report `pass`, `fail`, or `inconclusive` with exact reproduction steps.
+- Do not use `browser_verifier` as a replacement for automated tests. It is a pragmatic browser validation step for real UI behavior.
+- Example prompt:
+
+```text
+Spawn browser_verifier and validate the workout save flow against my local uncommitted changes. Do not edit code. Report pass/fail, exact steps, and evidence if something breaks.
+```
+
 ## Prisma workflow
 
 - Use `prisma migrate dev` only against the local/development database, never against production.

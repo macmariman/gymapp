@@ -202,8 +202,17 @@ describe("WorkoutApp", () => {
     jest.resetAllMocks()
   })
 
-  it("renders block inputs grouped by series inside each block", () => {
+  it("keeps the first block open by default and renders inputs after expanding other blocks", async () => {
+    const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
+
+    expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("30")
+    expect(
+      screen.queryByLabelText("Pecho plano con barra serie 1")
+    ).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Correr serie 1")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
     expect(screen.getAllByText("Bloque 1").length).toBeGreaterThan(0)
     expect(screen.getAllByText("3 series").length).toBeGreaterThan(0)
@@ -237,7 +246,9 @@ describe("WorkoutApp", () => {
     expect(
       firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
     ).toHaveValue("")
-    expect(screen.getByText("30 s")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /^cardio/i }))
+
     expect(screen.getByText("15:00")).toBeInTheDocument()
     expect(screen.getByLabelText("Correr serie 1")).toHaveAttribute(
       "placeholder",
@@ -300,6 +311,7 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.clear(screen.getByLabelText("Pecho plano con barra serie 1"))
     await user.type(
       screen.getByLabelText("Pecho plano con barra serie 1"),
@@ -325,6 +337,7 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
+    await user.click(screen.getByRole("button", { name: /^cardio/i }))
     const runningInput = screen.getByLabelText("Correr serie 1")
 
     await user.clear(runningInput)
@@ -363,6 +376,7 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     const pechoRow = screen
       .getByLabelText("Pecho plano con barra serie 1")
       .closest("div.grid")
@@ -387,6 +401,9 @@ describe("WorkoutApp", () => {
     expect(
       screen.getAllByText("Aperturas con mancuernas").length
     ).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole("button", { name: /bloque 2/i }))
+
     expect(screen.getAllByText("Pecho plano con barra").length).toBeGreaterThan(
       0
     )
@@ -421,6 +438,7 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     const pechoRow = screen
       .getByLabelText("Pecho plano con barra serie 1")
       .closest("div.grid")

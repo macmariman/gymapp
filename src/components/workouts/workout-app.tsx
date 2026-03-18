@@ -224,6 +224,47 @@ function getSessionExerciseBySlotId(
   return null
 }
 
+function getFlattenedSessionGroups(
+  routine: SessionRoutineWithStructure | undefined
+) {
+  if (!routine) {
+    return []
+  }
+
+  return routine.sections.flatMap((section) =>
+    section.groups.filter((group) => group.exercises.length > 0)
+  )
+}
+
+function getDefaultOpenGroupIds(
+  routine: SessionRoutineWithStructure | undefined,
+  requestedSlotId: string | null
+) {
+  const groups = getFlattenedSessionGroups(routine)
+
+  if (groups.length === 0) {
+    return []
+  }
+
+  if (requestedSlotId) {
+    const matchingGroup = groups.find((group) =>
+      group.exercises.some((exercise) => exercise.slotId === requestedSlotId)
+    )
+
+    if (matchingGroup) {
+      return [matchingGroup.id]
+    }
+  }
+
+  return [groups[0].id]
+}
+
+function getGroupTriggerLabel(group: SessionGroupView) {
+  return `${group.name} ${group.series} series ${group.exercises.length} ejercicio${
+    group.exercises.length === 1 ? "" : "s"
+  }`
+}
+
 function buildInitialValues(routine: RoutineWithStructure | undefined) {
   if (!routine) {
     return {}
@@ -775,9 +816,11 @@ function ExerciseSwapDialog({
 function SessionPanel({
   routine,
   selectedRoutineId,
+  openGroupIds,
   note,
   isPending,
   values,
+  onGroupOpenChange,
   onNoteChange,
   onValueChange,
   onValueBlur,
@@ -788,9 +831,11 @@ function SessionPanel({
 }: {
   routine: SessionRoutineWithStructure
   selectedRoutineId: string
+  openGroupIds: string[]
   note: string
   isPending: boolean
   values: Record<string, string>
+  onGroupOpenChange: (groupId: string, isOpen: boolean) => void
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
   onValueBlur: (key: string, value: string) => void
@@ -840,160 +885,203 @@ function SessionPanel({
                     </span>
                   </div>
                   {sectionGroups.map((group) => {
+                    const isOpen = openGroupIds.includes(group.id)
+
                     return (
-                      <div
+                      <Collapsible
                         key={group.id}
-                        className="space-y-2 border-b border-dashed border-border pb-3 last:border-b-0"
+                        onOpenChange={(nextOpen) =>
+                          onGroupOpenChange(group.id, nextOpen)
+                        }
+                        open={isOpen}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            {!shouldHideGroupName(group) ? (
-                              <div className="text-sm font-semibold text-foreground">
-                                {group.name}
-                              </div>
-                            ) : null}
-                            <div className="text-xs text-muted-foreground">
-                              {group.series} series
-                            </div>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className="rounded-md border-border bg-card text-muted-foreground"
-                          >
-                            {group.exercises.length} ejercicio
-                            {group.exercises.length === 1 ? "" : "s"}
-                          </Badge>
-                        </div>
-
-                        <div className="space-y-2">
-                          {Array.from({ length: group.series }, (_, index) => {
-                            const setNumber = index + 1
-
-                            return (
-                              <div
-                                key={`${group.id}-set-${setNumber}`}
-                                className="space-y-1 py-1"
-                              >
-                                <div className="inline-block rounded bg-accent px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-accent-foreground">
-                                  Serie {setNumber}
+                        <div className="border-b border-dashed border-border pb-3 last:border-b-0">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              aria-label={
+                                shouldHideGroupName(group)
+                                  ? getGroupTriggerLabel(group)
+                                  : undefined
+                              }
+                              className={cn(
+                                "flex w-full items-center justify-between gap-3 rounded-lg px-1 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                                isOpen ? "bg-muted/40" : ""
+                              )}
+                              type="button"
+                            >
+                              <div className="min-w-0">
+                                {!shouldHideGroupName(group) ? (
+                                  <div className="text-sm font-semibold text-foreground">
+                                    {group.name}
+                                  </div>
+                                ) : null}
+                                <div className="text-xs text-muted-foreground">
+                                  {group.series} series
                                 </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-md border-border bg-card text-muted-foreground"
+                                >
+                                  {group.exercises.length} ejercicio
+                                  {group.exercises.length === 1 ? "" : "s"}
+                                </Badge>
+                                <ChevronDown
+                                  aria-hidden="true"
+                                  className={cn(
+                                    "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                                    isOpen ? "rotate-180" : "rotate-0"
+                                  )}
+                                />
+                              </div>
+                            </button>
+                          </CollapsibleTrigger>
 
-                                <div className="space-y-1">
-                                  {group.exercises.map((exercise) => {
-                                    const inputKey = buildWeightInputKey(
-                                      exercise.id,
-                                      setNumber
-                                    )
-                                    const inputId = `${inputKey}-input`
-                                    const exerciseAnchorId = `exercise-slot-${exercise.slotId}`
-                                    const shouldSetAnchor = setNumber === 1
+                          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                            <div className="space-y-2 pt-2">
+                              {Array.from(
+                                { length: group.series },
+                                (_, index) => {
+                                  const setNumber = index + 1
 
-                                    return (
-                                      <div
-                                        id={
-                                          shouldSetAnchor
-                                            ? exerciseAnchorId
-                                            : undefined
-                                        }
-                                        key={inputKey}
-                                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 min-h-[44px]"
-                                      >
-                                        <div className="min-w-0 flex items-center gap-2">
-                                          <button
-                                            aria-label={
-                                              exercise.isSwapped
-                                                ? "Deshacer intercambio"
-                                                : "Intercambiar"
-                                            }
-                                            className={cn(
-                                              "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
-                                              exercise.isSwapped
-                                                ? "text-amber-600 hover:bg-amber-100"
-                                                : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
-                                            )}
-                                            onClick={() =>
-                                              exercise.isSwapped
-                                                ? onUndoSwap(exercise.slotId)
-                                                : onStartSwap(exercise.slotId)
-                                            }
-                                            type="button"
-                                          >
-                                            <ArrowRightLeft className="size-3.5" />
-                                          </button>
-                                          <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                              <Link
-                                                aria-label={`Ver progreso de ${exercise.name}`}
-                                                className="rounded-md px-1 py-0.5 -mx-1 text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                                                href={`/progress/${exercise.movementId}?routineId=${selectedRoutineId}&slotId=${exercise.slotId}`}
-                                              >
-                                                {exercise.name}
-                                                <span className="ml-1.5 font-normal text-muted-foreground">
-                                                  &gt;
-                                                </span>
-                                              </Link>
-                                              {exercise.isSwapped ? (
-                                                <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
-                                                  Swap
-                                                </Badge>
-                                              ) : null}
-                                            </div>
-                                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                                              {formatTarget(exercise)}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <input
-                                          aria-label={`${exercise.name} serie ${setNumber}`}
-                                          className={cn(
-                                            "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
-                                            exercise.durationFormat === "mmss"
-                                              ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
-                                              : "w-14"
-                                          )}
-                                          id={inputId}
-                                          onFocus={(event) => {
-                                            if (event.target.value.length > 0) {
-                                              event.target.select()
-                                            }
-                                          }}
-                                          onChange={(event) =>
-                                            onValueChange(
-                                              inputKey,
-                                              formatExerciseInputValue(
-                                                exercise,
-                                                event.target.value
-                                              )
-                                            )
-                                          }
-                                          onBlur={(event) =>
-                                            onValueBlur(
-                                              inputKey,
-                                              normalizeExerciseInputValueOnBlur(
-                                                exercise,
-                                                event.target.value
-                                              )
-                                            )
-                                          }
-                                          placeholder={getInputPlaceholderForFormat(
-                                            exercise.logType,
-                                            exercise.durationFormat
-                                          )}
-                                          inputMode={getInputModeForFormat(
-                                            exercise.logType,
-                                            exercise.durationFormat
-                                          )}
-                                          value={values[inputKey] ?? ""}
-                                        />
+                                  return (
+                                    <div
+                                      key={`${group.id}-set-${setNumber}`}
+                                      className="space-y-1 py-1"
+                                    >
+                                      <div className="inline-block rounded bg-accent px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-accent-foreground">
+                                        Serie {setNumber}
                                       </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )
-                          })}
+
+                                      <div className="space-y-1">
+                                        {group.exercises.map((exercise) => {
+                                          const inputKey = buildWeightInputKey(
+                                            exercise.id,
+                                            setNumber
+                                          )
+                                          const inputId = `${inputKey}-input`
+                                          const exerciseAnchorId = `exercise-slot-${exercise.slotId}`
+                                          const shouldSetAnchor =
+                                            setNumber === 1
+
+                                          return (
+                                            <div
+                                              id={
+                                                shouldSetAnchor
+                                                  ? exerciseAnchorId
+                                                  : undefined
+                                              }
+                                              key={inputKey}
+                                              className="grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2"
+                                            >
+                                              <div className="min-w-0 flex items-center gap-2">
+                                                <button
+                                                  aria-label={
+                                                    exercise.isSwapped
+                                                      ? "Deshacer intercambio"
+                                                      : "Intercambiar"
+                                                  }
+                                                  className={cn(
+                                                    "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
+                                                    exercise.isSwapped
+                                                      ? "text-amber-600 hover:bg-amber-100"
+                                                      : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+                                                  )}
+                                                  onClick={() =>
+                                                    exercise.isSwapped
+                                                      ? onUndoSwap(
+                                                          exercise.slotId
+                                                        )
+                                                      : onStartSwap(
+                                                          exercise.slotId
+                                                        )
+                                                  }
+                                                  type="button"
+                                                >
+                                                  <ArrowRightLeft className="size-3.5" />
+                                                </button>
+                                                <div className="min-w-0">
+                                                  <div className="flex flex-wrap items-center gap-1.5">
+                                                    <Link
+                                                      aria-label={`Ver progreso de ${exercise.name}`}
+                                                      className="rounded-md -mx-1 px-1 py-0.5 text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                      href={`/progress/${exercise.movementId}?routineId=${selectedRoutineId}&slotId=${exercise.slotId}`}
+                                                    >
+                                                      {exercise.name}
+                                                      <span className="ml-1.5 font-normal text-muted-foreground">
+                                                        &gt;
+                                                      </span>
+                                                    </Link>
+                                                    {exercise.isSwapped ? (
+                                                      <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
+                                                        Swap
+                                                      </Badge>
+                                                    ) : null}
+                                                  </div>
+                                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                    {formatTarget(exercise)}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                              <input
+                                                aria-label={`${exercise.name} serie ${setNumber}`}
+                                                className={cn(
+                                                  "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
+                                                  exercise.durationFormat ===
+                                                    "mmss"
+                                                    ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
+                                                    : "w-14"
+                                                )}
+                                                id={inputId}
+                                                onFocus={(event) => {
+                                                  if (
+                                                    event.target.value.length >
+                                                    0
+                                                  ) {
+                                                    event.target.select()
+                                                  }
+                                                }}
+                                                onChange={(event) =>
+                                                  onValueChange(
+                                                    inputKey,
+                                                    formatExerciseInputValue(
+                                                      exercise,
+                                                      event.target.value
+                                                    )
+                                                  )
+                                                }
+                                                onBlur={(event) =>
+                                                  onValueBlur(
+                                                    inputKey,
+                                                    normalizeExerciseInputValueOnBlur(
+                                                      exercise,
+                                                      event.target.value
+                                                    )
+                                                  )
+                                                }
+                                                placeholder={getInputPlaceholderForFormat(
+                                                  exercise.logType,
+                                                  exercise.durationFormat
+                                                )}
+                                                inputMode={getInputModeForFormat(
+                                                  exercise.logType,
+                                                  exercise.durationFormat
+                                                )}
+                                                value={values[inputKey] ?? ""}
+                                              />
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                              )}
+                            </div>
+                          </CollapsibleContent>
                         </div>
-                      </div>
+                      </Collapsible>
                     )
                   })}
                 </div>
@@ -1051,16 +1139,29 @@ export function WorkoutApp({
     routines.some((routine) => routine.id === requestedRoutineId)
       ? requestedRoutineId
       : null
-  const [selectedRoutineId, setSelectedRoutineId] = useState(() =>
-    preferredRoutineId
-      ? preferredRoutineId
-      : getSuggestedRoutineId(routines, history)
+  const initialSelectedRoutineId = preferredRoutineId
+    ? preferredRoutineId
+    : getSuggestedRoutineId(routines, history)
+  const initialSelectedRoutine =
+    routineDetails.find((routine) => routine.id === initialSelectedRoutineId) ??
+    routineDetails[0]
+  const [selectedRoutineId, setSelectedRoutineId] = useState(
+    initialSelectedRoutineId
   )
   const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
   const [note, setNote] = useState("")
   const [values, setValues] = useState<Record<string, string>>({})
   const [slotAssignments, setSlotAssignments] = useState<SlotAssignments>({})
   const [swapSourceSlotId, setSwapSourceSlotId] = useState<string | null>(null)
+  const [openGroupIds, setOpenGroupIds] = useState<string[]>(() =>
+    getDefaultOpenGroupIds(
+      buildSessionRoutine(
+        initialSelectedRoutine,
+        buildInitialSlotAssignments(initialSelectedRoutine)
+      ),
+      requestedSlotId
+    )
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const sessionPanelRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<SubmissionState>({
@@ -1098,6 +1199,18 @@ export function WorkoutApp({
         "Guardá una sesión para actualizar asistencia, últimos registros e historial.",
     })
   }, [selectedRoutine])
+
+  useEffect(() => {
+    setOpenGroupIds(
+      getDefaultOpenGroupIds(
+        buildSessionRoutine(
+          selectedRoutine,
+          buildInitialSlotAssignments(selectedRoutine)
+        ),
+        requestedSlotId
+      )
+    )
+  }, [selectedRoutine, requestedSlotId])
 
   useEffect(() => {
     if (!shouldScrollToRoutine) {
@@ -1335,6 +1448,19 @@ export function WorkoutApp({
             <SessionPanel
               isPending={isPending || isSubmitting}
               note={note}
+              onGroupOpenChange={(groupId, isOpen) =>
+                setOpenGroupIds((currentGroupIds) => {
+                  if (isOpen) {
+                    return currentGroupIds.includes(groupId)
+                      ? currentGroupIds
+                      : [...currentGroupIds, groupId]
+                  }
+
+                  return currentGroupIds.filter(
+                    (currentGroupId) => currentGroupId !== groupId
+                  )
+                })
+              }
               onNoteChange={setNote}
               onStartSwap={handleStartSwap}
               onSubmit={handleSubmit}
@@ -1352,6 +1478,7 @@ export function WorkoutApp({
                 }))
               }
               panelRef={sessionPanelRef}
+              openGroupIds={openGroupIds}
               routine={sessionRoutine}
               selectedRoutineId={selectedRoutineId}
               values={values}
