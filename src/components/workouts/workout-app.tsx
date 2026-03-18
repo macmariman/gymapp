@@ -34,7 +34,10 @@ import type {
   RoutineWithStructure,
   WorkoutPageData,
 } from "@/lib/workouts/types"
-import { ExerciseTimerPanel } from "@/components/workouts/exercise-timer-panel"
+import {
+  ExerciseTimerBand,
+  ExerciseTimerTrigger,
+} from "@/components/workouts/exercise-timer-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -1230,98 +1233,100 @@ function SessionPanel({
                                                   </div>
                                                 </div>
                                                 <div className="col-start-2 min-w-0">
-                                                  {isTimeExercise ? (
-                                                    <ExerciseTimerPanel
-                                                      elapsedSeconds={
-                                                        elapsedSeconds
-                                                      }
-                                                      exerciseName={
-                                                        exercise.name
-                                                      }
-                                                      isOpen={isTimerOpen}
-                                                      isRunning={
-                                                        timerState.runningTimerKey ===
-                                                        inputKey
-                                                      }
-                                                      onApply={() =>
-                                                        handleApplyTimerValue(
-                                                          inputKey,
-                                                          inputKey,
-                                                          exercise
-                                                        )
-                                                      }
-                                                      onReset={() =>
-                                                        handleResetTimer(
-                                                          inputKey
-                                                        )
-                                                      }
-                                                      onToggleOpen={() =>
-                                                        handleToggleTimerPanel(
-                                                          inputKey
-                                                        )
-                                                      }
-                                                      onToggleRunning={() =>
-                                                        handleToggleTimerRunning(
-                                                          inputKey
-                                                        )
-                                                      }
-                                                      setNumber={setNumber}
-                                                      targetLabel={targetLabel}
-                                                      timerId={timerId}
-                                                    />
-                                                  ) : (
-                                                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                                                      {targetLabel}
-                                                    </span>
-                                                  )}
+                                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                    {targetLabel}
+                                                  </span>
                                                 </div>
                                               </div>
-                                              <input
-                                                aria-label={`${exercise.name} serie ${setNumber}`}
-                                                className={cn(
-                                                  "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
-                                                  exercise.durationFormat ===
-                                                    "mmss"
-                                                    ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
-                                                    : "w-14"
-                                                )}
-                                                id={inputId}
-                                                onFocus={(event) => {
-                                                  if (
-                                                    event.target.value.length >
-                                                    0
-                                                  ) {
-                                                    event.target.select()
+                                              <div className="flex items-center justify-end gap-1.5">
+                                                {isTimeExercise ? (
+                                                  <ExerciseTimerTrigger
+                                                    exerciseName={exercise.name}
+                                                    isOpen={isTimerOpen}
+                                                    onToggleOpen={() =>
+                                                      handleToggleTimerPanel(
+                                                        inputKey
+                                                      )
+                                                    }
+                                                    setNumber={setNumber}
+                                                  />
+                                                ) : null}
+                                                <input
+                                                  aria-label={`${exercise.name} serie ${setNumber}`}
+                                                  className={cn(
+                                                    "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
+                                                    exercise.durationFormat ===
+                                                      "mmss"
+                                                      ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
+                                                      : "w-14"
+                                                  )}
+                                                  id={inputId}
+                                                  onFocus={(event) => {
+                                                    if (
+                                                      event.target.value
+                                                        .length > 0
+                                                    ) {
+                                                      event.target.select()
+                                                    }
+                                                  }}
+                                                  onChange={(event) =>
+                                                    onValueChange(
+                                                      inputKey,
+                                                      formatExerciseInputValue(
+                                                        exercise,
+                                                        event.target.value
+                                                      )
+                                                    )
                                                   }
-                                                }}
-                                                onChange={(event) =>
-                                                  onValueChange(
-                                                    inputKey,
-                                                    formatExerciseInputValue(
-                                                      exercise,
-                                                      event.target.value
+                                                  onBlur={(event) =>
+                                                    onValueBlur(
+                                                      inputKey,
+                                                      normalizeExerciseInputValueOnBlur(
+                                                        exercise,
+                                                        event.target.value
+                                                      )
                                                     )
-                                                  )
-                                                }
-                                                onBlur={(event) =>
-                                                  onValueBlur(
-                                                    inputKey,
-                                                    normalizeExerciseInputValueOnBlur(
-                                                      exercise,
-                                                      event.target.value
-                                                    )
-                                                  )
-                                                }
-                                                placeholder={getInputPlaceholderForFormat(
-                                                  exercise.logType,
-                                                  exercise.durationFormat
-                                                )}
-                                                inputMode={getInputModeForFormat(
-                                                  exercise.logType,
-                                                  exercise.durationFormat
-                                                )}
-                                                value={values[inputKey] ?? ""}
-                                              />
+                                                  }
+                                                  placeholder={getInputPlaceholderForFormat(
+                                                    exercise.logType,
+                                                    exercise.durationFormat
+                                                  )}
+                                                  inputMode={getInputModeForFormat(
+                                                    exercise.logType,
+                                                    exercise.durationFormat
+                                                  )}
+                                                  value={values[inputKey] ?? ""}
+                                                />
+                                              </div>
+                                              {isTimeExercise && isTimerOpen ? (
+                                                <div className="col-span-2 pt-1">
+                                                  <ExerciseTimerBand
+                                                    elapsedSeconds={
+                                                      elapsedSeconds
+                                                    }
+                                                    isRunning={
+                                                      timerState.runningTimerKey ===
+                                                      inputKey
+                                                    }
+                                                    onApply={() =>
+                                                      handleApplyTimerValue(
+                                                        inputKey,
+                                                        inputKey,
+                                                        exercise
+                                                      )
+                                                    }
+                                                    onReset={() =>
+                                                      handleResetTimer(inputKey)
+                                                    }
+                                                    onToggleRunning={() =>
+                                                      handleToggleTimerRunning(
+                                                        inputKey
+                                                      )
+                                                    }
+                                                    timerId={timerId}
+                                                  />
+                                                </div>
+                                              ) : null}
                                             </div>
                                           )
                                         })}
