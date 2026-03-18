@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import type { WorkoutPageData } from "@/lib/workouts/types"
@@ -199,6 +199,7 @@ describe("WorkoutApp", () => {
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     jest.resetAllMocks()
   })
 
@@ -370,6 +371,59 @@ describe("WorkoutApp", () => {
         }),
       ])
     )
+  })
+
+  it("applies stopwatch time to seconds-based exercises", async () => {
+    jest.useFakeTimers()
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    })
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Usar cronómetro en Plancha ventral serie 1",
+      })
+    )
+    await user.click(screen.getByRole("button", { name: "Iniciar" }))
+
+    act(() => {
+      jest.advanceTimersByTime(37_000)
+    })
+
+    expect(screen.getByText("00:37")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Usar" }))
+
+    expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("37")
+    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
+  })
+
+  it("applies stopwatch time to mm:ss exercises", async () => {
+    jest.useFakeTimers()
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    })
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /^cardio/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Usar cronómetro en Correr serie 1",
+      })
+    )
+    await user.click(screen.getByRole("button", { name: "Iniciar" }))
+
+    act(() => {
+      jest.advanceTimersByTime(123_000)
+    })
+
+    expect(screen.getByText("02:03")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Usar" }))
+
+    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("02:03")
+    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
   })
 
   it("swaps exercises inside the same routine and can undo the swap", async () => {

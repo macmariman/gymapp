@@ -34,6 +34,7 @@ import type {
   RoutineWithStructure,
   WorkoutPageData,
 } from "@/lib/workouts/types"
+import { ExerciseTimerPanel } from "@/components/workouts/exercise-timer-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -84,6 +85,20 @@ type SessionRoutineSectionView = Omit<
 
 type SessionRoutineWithStructure = Omit<RoutineWithStructure, "sections"> & {
   sections: SessionRoutineSectionView[]
+}
+
+type ExerciseTimerState = {
+  openTimerKey: string | null
+  runningTimerKey: string | null
+  startedAtMs: number | null
+  elapsedByTimerKey: Record<string, number>
+}
+
+const EMPTY_TIMER_STATE: ExerciseTimerState = {
+  openTimerKey: null,
+  runningTimerKey: null,
+  startedAtMs: null,
+  elapsedByTimerKey: {},
 }
 
 function FloatingToast({
@@ -388,6 +403,51 @@ function normalizeExerciseInputValueOnBlur(
   }
 
   return trimmedValue
+}
+
+function getElapsedTimerSeconds(
+  timerState: ExerciseTimerState,
+  timerKey: string,
+  nowMs: number
+) {
+  const elapsedSeconds = timerState.elapsedByTimerKey[timerKey] ?? 0
+
+  if (
+    timerState.runningTimerKey !== timerKey ||
+    timerState.startedAtMs === null
+  ) {
+    return elapsedSeconds
+  }
+
+  return (
+    elapsedSeconds +
+    Math.max(0, Math.floor((nowMs - timerState.startedAtMs) / 1000))
+  )
+}
+
+function pauseRunningTimer(
+  timerState: ExerciseTimerState,
+  nowMs: number
+): ExerciseTimerState {
+  const { runningTimerKey } = timerState
+
+  if (!runningTimerKey || timerState.startedAtMs === null) {
+    return timerState
+  }
+
+  return {
+    ...timerState,
+    runningTimerKey: null,
+    startedAtMs: null,
+    elapsedByTimerKey: {
+      ...timerState.elapsedByTimerKey,
+      [runningTimerKey]: getElapsedTimerSeconds(
+        timerState,
+        runningTimerKey,
+        nowMs
+      ),
+    },
+  }
 }
 
 function RoutineList({
@@ -848,6 +908,137 @@ function SessionPanel({
     section.groups.filter((group) => group.exercises.length > 0)
   )
   const hasWeightedGroups = groupsWithTracking.length > 0
+  const [timerState, setTimerState] = useState<ExerciseTimerState>(
+    EMPTY_TIMER_STATE
+  )
+  const [timerNowMs, setTimerNowMs] = useState(() => Date.now())
+  const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
+
+  useEffect(() => {
+    timerStateRef.current = timerState
+  }, [timerState])
+
+  useEffect(() => {
+    setTimerState(EMPTY_TIMER_STATE)
+    setTimerNowMs(Date.now())
+  }, [routine.id])
+
+  useEffect(() => {
+    if (timerState.runningTimerKey === null) {
+      return
+    }
+
+    setTimerNowMs(Date.now())
+    const intervalId = window.setInterval(() => {
+      setTimerNowMs(Date.now())
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [timerState.runningTimerKey])
+
+  function handleToggleTimerPanel(timerKey: string) {
+    setTimerState((currentTimerState) => {
+      const nowMs = Date.now()
+
+      if (currentTimerState.openTimerKey === timerKey) {
+        const nextTimerState =
+          currentTimerState.runningTimerKey === timerKey
+            ? pauseRunningTimer(currentTimerState, nowMs)
+            : currentTimerState
+
+        return {
+          ...nextTimerState,
+          openTimerKey: null,
+        }
+      }
+
+      const nextTimerState =
+        currentTimerState.runningTimerKey &&
+        currentTimerState.runningTimerKey !== timerKey
+          ? pauseRunningTimer(currentTimerState, nowMs)
+          : currentTimerState
+
+      return {
+        ...nextTimerState,
+        openTimerKey: timerKey,
+      }
+    })
+  }
+
+  function handleToggleTimerRunning(timerKey: string) {
+    setTimerState((currentTimerState) => {
+      const nowMs = Date.now()
+
+      if (currentTimerState.runningTimerKey === timerKey) {
+        return pauseRunningTimer(currentTimerState, nowMs)
+      }
+
+      const nextTimerState =
+        currentTimerState.runningTimerKey &&
+        currentTimerState.runningTimerKey !== timerKey
+          ? pauseRunningTimer(currentTimerState, nowMs)
+          : currentTimerState
+
+      return {
+        ...nextTimerState,
+        openTimerKey: timerKey,
+        runningTimerKey: timerKey,
+        startedAtMs: nowMs,
+      }
+    })
+  }
+
+  function handleResetTimer(timerKey: string) {
+    setTimerState((currentTimerState) => {
+      const nextTimerState =
+        currentTimerState.runningTimerKey === timerKey
+          ? pauseRunningTimer(currentTimerState, Date.now())
+          : currentTimerState
+
+      return {
+        ...nextTimerState,
+        elapsedByTimerKey: {
+          ...nextTimerState.elapsedByTimerKey,
+          [timerKey]: 0,
+        },
+      }
+    })
+  }
+
+  function handleApplyTimerValue(
+    timerKey: string,
+    inputKey: string,
+    exercise: SessionExerciseView
+  ) {
+    const nowMs = Date.now()
+    const currentTimerState = timerStateRef.current
+    const elapsedSeconds = getElapsedTimerSeconds(
+      currentTimerState,
+      timerKey,
+      nowMs
+    )
+
+    if (elapsedSeconds <= 0) {
+      return
+    }
+
+    const nextTimerState =
+      currentTimerState.runningTimerKey === timerKey
+        ? pauseRunningTimer(currentTimerState, nowMs)
+        : currentTimerState
+
+    setTimerState({
+      ...nextTimerState,
+      elapsedByTimerKey: {
+        ...nextTimerState.elapsedByTimerKey,
+        [timerKey]: elapsedSeconds,
+      },
+    })
+    onValueChange(
+      inputKey,
+      formatDurationInputValue(elapsedSeconds, exercise.durationFormat)
+    )
+  }
 
   return (
     <Card
@@ -961,9 +1152,22 @@ function SessionPanel({
                                             setNumber
                                           )
                                           const inputId = `${inputKey}-input`
+                                          const timerId = `${inputId}-timer`
                                           const exerciseAnchorId = `exercise-slot-${exercise.slotId}`
                                           const shouldSetAnchor =
                                             setNumber === 1
+                                          const isTimeExercise =
+                                            exercise.logType === "time"
+                                          const isTimerOpen =
+                                            timerState.openTimerKey === inputKey
+                                          const elapsedSeconds =
+                                            getElapsedTimerSeconds(
+                                              timerState,
+                                              inputKey,
+                                              timerNowMs
+                                            )
+                                          const targetLabel =
+                                            formatTarget(exercise)
 
                                           return (
                                             <div
@@ -973,9 +1177,14 @@ function SessionPanel({
                                                   : undefined
                                               }
                                               key={inputKey}
-                                              className="grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2"
+                                              className={cn(
+                                                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] gap-2 py-2",
+                                                isTimerOpen
+                                                  ? "items-start"
+                                                  : "items-center"
+                                              )}
                                             >
-                                              <div className="min-w-0 flex items-center gap-2">
+                                              <div className="min-w-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2">
                                                 <button
                                                   aria-label={
                                                     exercise.isSwapped
@@ -1019,9 +1228,52 @@ function SessionPanel({
                                                       </Badge>
                                                     ) : null}
                                                   </div>
-                                                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                                                    {formatTarget(exercise)}
-                                                  </span>
+                                                </div>
+                                                <div className="col-start-2 min-w-0">
+                                                  {isTimeExercise ? (
+                                                    <ExerciseTimerPanel
+                                                      elapsedSeconds={
+                                                        elapsedSeconds
+                                                      }
+                                                      exerciseName={
+                                                        exercise.name
+                                                      }
+                                                      isOpen={isTimerOpen}
+                                                      isRunning={
+                                                        timerState.runningTimerKey ===
+                                                        inputKey
+                                                      }
+                                                      onApply={() =>
+                                                        handleApplyTimerValue(
+                                                          inputKey,
+                                                          inputKey,
+                                                          exercise
+                                                        )
+                                                      }
+                                                      onReset={() =>
+                                                        handleResetTimer(
+                                                          inputKey
+                                                        )
+                                                      }
+                                                      onToggleOpen={() =>
+                                                        handleToggleTimerPanel(
+                                                          inputKey
+                                                        )
+                                                      }
+                                                      onToggleRunning={() =>
+                                                        handleToggleTimerRunning(
+                                                          inputKey
+                                                        )
+                                                      }
+                                                      setNumber={setNumber}
+                                                      targetLabel={targetLabel}
+                                                      timerId={timerId}
+                                                    />
+                                                  ) : (
+                                                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                      {targetLabel}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               </div>
                                               <input
