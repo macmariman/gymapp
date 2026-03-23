@@ -183,13 +183,26 @@ const workoutPageData: WorkoutPageData = {
 
 describe("WorkoutApp", () => {
   const scrollIntoViewMock = jest.fn()
+  const wakeLockReleaseMock = jest.fn().mockResolvedValue(undefined)
+  const wakeLockRequestMock = jest.fn().mockResolvedValue({
+    released: false,
+    release: wakeLockReleaseMock,
+  })
 
   beforeEach(() => {
     scrollIntoViewMock.mockReset()
+    wakeLockReleaseMock.mockClear()
+    wakeLockRequestMock.mockClear()
     window.history.pushState({}, "", "/")
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: scrollIntoViewMock,
+    })
+    Object.defineProperty(window.navigator, "wakeLock", {
+      configurable: true,
+      value: {
+        request: wakeLockRequestMock,
+      },
     })
 
     global.fetch = jest.fn().mockResolvedValue({
@@ -203,15 +216,21 @@ describe("WorkoutApp", () => {
     jest.resetAllMocks()
   })
 
-  it("keeps the first block open by default and renders inputs after expanding other blocks", async () => {
+  it("starts with all groups collapsed and renders inputs after expanding blocks", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
-    expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("30")
+    expect(
+      screen.queryByLabelText("Plancha ventral serie 1")
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByLabelText("Pecho plano con barra serie 1")
     ).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Correr serie 1")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /zona media/i }))
+
+    expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("30")
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
@@ -292,7 +311,9 @@ describe("WorkoutApp", () => {
     )
 
     expect(screen.getAllByText("Rutina 2").length).toBeGreaterThan(0)
-    expect(screen.getByLabelText("Remo con barra serie 1")).toHaveValue("50")
+    expect(
+      screen.queryByLabelText("Remo con barra serie 1")
+    ).not.toBeInTheDocument()
   })
 
   it("restores the routine from the query string when coming back from progress", () => {
@@ -306,6 +327,23 @@ describe("WorkoutApp", () => {
       behavior: "smooth",
       block: "center",
     })
+  })
+
+  it("opens the next group and closes the current one when tabbing across groups", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+
+    const currentInput = screen.getByLabelText("Fondo tríceps en banco serie 3")
+    currentInput.focus()
+
+    await user.tab()
+
+    expect(
+      screen.queryByLabelText("Pecho plano con barra serie 1")
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText("Aperturas con mancuernas serie 1")).toHaveFocus()
   })
 
   it("submits a session with weights and shows success feedback", async () => {
@@ -380,6 +418,7 @@ describe("WorkoutApp", () => {
     })
     render(<WorkoutApp {...workoutPageData} />)
 
+    await user.click(screen.getByRole("button", { name: /zona media/i }))
     await user.click(
       screen.getByRole("button", {
         name: "Usar cronómetro en Plancha ventral serie 1",
@@ -397,6 +436,58 @@ describe("WorkoutApp", () => {
 
     expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("37")
     expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
+  })
+
+  it("requests and releases a wake lock while the stopwatch is running", async () => {
+    jest.useFakeTimers()
+    const lateReleaseMock = jest.fn().mockResolvedValue(undefined)
+    let resolveWakeLockRequest:
+      | ((value: { released: boolean; release: typeof lateReleaseMock }) => void)
+      | null = null
+
+    wakeLockRequestMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveWakeLockRequest = resolve
+        })
+    )
+
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    })
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /zona media/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Usar cronómetro en Plancha ventral serie 1",
+      })
+    )
+    await user.click(screen.getByRole("button", { name: "Iniciar" }))
+
+    await waitFor(() => {
+      expect(wakeLockRequestMock).toHaveBeenCalledWith("screen")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Pausar" }))
+
+    expect(resolveWakeLockRequest).not.toBeNull()
+
+    await act(async () => {
+      resolveWakeLockRequest?.({
+        released: false,
+        release: lateReleaseMock,
+      })
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(lateReleaseMock).toHaveBeenCalled()
+    })
   })
 
   it("applies stopwatch time to mm:ss exercises", async () => {
@@ -559,6 +650,7 @@ describe("WorkoutApp", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /rutina 2/i }))
+    await user.click(screen.getByRole("button", { name: /bloque 2/i }))
 
     expect(scrollIntoViewMock).toHaveBeenCalledWith({
       behavior: "smooth",

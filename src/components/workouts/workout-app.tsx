@@ -97,6 +97,11 @@ type ExerciseTimerState = {
   elapsedByTimerKey: Record<string, number>
 }
 
+type WakeLockSentinelLike = {
+  released: boolean
+  release: () => Promise<void>
+}
+
 const EMPTY_TIMER_STATE: ExerciseTimerState = {
   openTimerKey: null,
   runningTimerKey: null,
@@ -274,7 +279,7 @@ function getDefaultOpenGroupIds(
     }
   }
 
-  return [groups[0].id]
+  return []
 }
 
 function getGroupTriggerLabel(group: SessionGroupView) {
@@ -883,7 +888,7 @@ function SessionPanel({
   note,
   isPending,
   values,
-  onGroupOpenChange,
+  onOpenGroupIdsChange,
   onNoteChange,
   onValueChange,
   onValueBlur,
@@ -898,7 +903,7 @@ function SessionPanel({
   note: string
   isPending: boolean
   values: Record<string, string>
-  onGroupOpenChange: (groupId: string, isOpen: boolean) => void
+  onOpenGroupIdsChange: (groupIds: string[]) => void
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
   onValueBlur: (key: string, value: string) => void
@@ -916,6 +921,9 @@ function SessionPanel({
   )
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now())
   const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
+  const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
+  const pendingFocusInputKeyRef = useRef<string | null>(null)
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
     timerStateRef.current = timerState
@@ -938,6 +946,138 @@ function SessionPanel({
 
     return () => window.clearInterval(intervalId)
   }, [timerState.runningTimerKey])
+
+  useEffect(() => {
+    let effectActive = true
+
+    async function releaseWakeLock() {
+      const wakeLock = wakeLockRef.current
+
+      if (!wakeLock) {
+        return
+      }
+
+      wakeLockRef.current = null
+
+      if (!wakeLock.released) {
+        await wakeLock.release()
+      }
+    }
+
+    async function requestWakeLock() {
+      if (timerState.runningTimerKey === null || typeof window === "undefined") {
+        await releaseWakeLock()
+        return
+      }
+
+      const wakeLockApi = (
+        navigator as Navigator & {
+          wakeLock?: { request: (type: "screen") => Promise<WakeLockSentinelLike> }
+        }
+      ).wakeLock
+
+      if (!wakeLockApi) {
+        return
+      }
+
+      try {
+        await releaseWakeLock()
+        const nextWakeLock = await wakeLockApi.request("screen")
+
+        if (!effectActive || timerStateRef.current.runningTimerKey === null) {
+          if (!nextWakeLock.released) {
+            await nextWakeLock.release()
+          }
+
+          return
+        }
+
+        wakeLockRef.current = nextWakeLock
+      } catch {
+        wakeLockRef.current = null
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void requestWakeLock()
+      }
+    }
+
+    void requestWakeLock()
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      effectActive = false
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      void releaseWakeLock()
+    }
+  }, [timerState.runningTimerKey])
+
+  const orderedInputs = React.useMemo(
+    () =>
+      routine.sections.flatMap((section) =>
+        section.groups
+          .filter((group) => group.exercises.length > 0)
+          .flatMap((group) =>
+            Array.from({ length: group.series }, (_, index) => {
+              const setNumber = index + 1
+
+              return group.exercises.map((exercise) => ({
+                groupId: group.id,
+                inputKey: buildWeightInputKey(exercise.id, setNumber),
+              }))
+            }).flat()
+          )
+      ),
+    [routine]
+  )
+
+  useEffect(() => {
+    const pendingInputKey = pendingFocusInputKeyRef.current
+
+    if (!pendingInputKey) {
+      return
+    }
+
+    const nextInput = inputRefs.current[pendingInputKey]
+
+    if (!nextInput) {
+      return
+    }
+
+    pendingFocusInputKeyRef.current = null
+    nextInput.focus()
+    nextInput.select()
+  }, [openGroupIds])
+
+  function handleInputTabNavigation(
+    event: React.KeyboardEvent<HTMLInputElement>,
+    inputKey: string
+  ) {
+    if (event.key !== "Tab" || event.shiftKey) {
+      return
+    }
+
+    const currentIndex = orderedInputs.findIndex(
+      (entry) => entry.inputKey === inputKey
+    )
+
+    if (currentIndex === -1 || currentIndex === orderedInputs.length - 1) {
+      return
+    }
+
+    const currentInput = orderedInputs[currentIndex]
+    const nextInput = orderedInputs[currentIndex + 1]
+
+    if (currentInput.groupId === nextInput.groupId) {
+      return
+    }
+
+    event.preventDefault()
+    pendingFocusInputKeyRef.current = nextInput.inputKey
+    onOpenGroupIdsChange([nextInput.groupId])
+  }
 
   function handleToggleTimerPanel(timerKey: string) {
     setTimerState((currentTimerState) => {
@@ -1085,7 +1225,13 @@ function SessionPanel({
                       <Collapsible
                         key={group.id}
                         onOpenChange={(nextOpen) =>
-                          onGroupOpenChange(group.id, nextOpen)
+                          onOpenGroupIdsChange(
+                            nextOpen
+                              ? Array.from(new Set([...openGroupIds, group.id]))
+                              : openGroupIds.filter(
+                                  (currentGroupId) => currentGroupId !== group.id
+                                )
+                          )
                         }
                         open={isOpen}
                       >
@@ -1261,6 +1407,12 @@ function SessionPanel({
                                                       : "w-14"
                                                   )}
                                                   id={inputId}
+                                                  onKeyDown={(event) =>
+                                                    handleInputTabNavigation(
+                                                      event,
+                                                      inputKey
+                                                    )
+                                                  }
                                                   onFocus={(event) => {
                                                     if (
                                                       event.target.value
@@ -1268,6 +1420,10 @@ function SessionPanel({
                                                     ) {
                                                       event.target.select()
                                                     }
+                                                  }}
+                                                  ref={(element) => {
+                                                    inputRefs.current[inputKey] =
+                                                      element
                                                   }}
                                                   onChange={(event) =>
                                                     onValueChange(
@@ -1705,19 +1861,7 @@ export function WorkoutApp({
             <SessionPanel
               isPending={isPending || isSubmitting}
               note={note}
-              onGroupOpenChange={(groupId, isOpen) =>
-                setOpenGroupIds((currentGroupIds) => {
-                  if (isOpen) {
-                    return currentGroupIds.includes(groupId)
-                      ? currentGroupIds
-                      : [...currentGroupIds, groupId]
-                  }
-
-                  return currentGroupIds.filter(
-                    (currentGroupId) => currentGroupId !== groupId
-                  )
-                })
-              }
+              onOpenGroupIdsChange={setOpenGroupIds}
               onNoteChange={setNote}
               onStartSwap={handleStartSwap}
               onSubmit={handleSubmit}
