@@ -1,7 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useRef, useState, useTransition } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -1038,7 +1044,7 @@ function SessionPanel({
     return map
   }, [flattenedGroups])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const pendingInputKey = pendingFocusInputKeyRef.current
 
     if (!pendingInputKey) {
