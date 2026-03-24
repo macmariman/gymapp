@@ -329,21 +329,28 @@ describe("WorkoutApp", () => {
     })
   })
 
-  it("opens the next group and closes the current one when tabbing across groups", async () => {
+  it("opens the next group and closes the current one when focus advances past the block", async () => {
     const user = userEvent.setup()
-    render(<WorkoutApp {...workoutPageData} />)
+    const { container } = render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
-    const currentInput = screen.getByLabelText("Fondo tríceps en banco serie 3")
-    currentInput.focus()
+    const focusBridge = container.querySelector(
+      '[data-focus-bridge-for="group-1"]'
+    ) as HTMLButtonElement | null
 
-    await user.tab()
+    expect(focusBridge).not.toBeNull()
 
-    expect(
-      screen.queryByLabelText("Pecho plano con barra serie 1")
-    ).not.toBeInTheDocument()
-    expect(screen.getByLabelText("Aperturas con mancuernas serie 1")).toHaveFocus()
+    focusBridge?.focus()
+
+    await waitFor(() => {
+      expect(
+        screen.queryByLabelText("Pecho plano con barra serie 1")
+      ).not.toBeInTheDocument()
+      expect(
+        screen.getByLabelText("Aperturas con mancuernas serie 1")
+      ).toHaveFocus()
+    })
   })
 
   it("submits a session with weights and shows success feedback", async () => {

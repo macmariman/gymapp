@@ -1032,6 +1032,10 @@ function SessionPanel({
       ),
     [routine]
   )
+  const flattenedGroups = React.useMemo(
+    () => getFlattenedSessionGroups(routine),
+    [routine]
+  )
 
   useEffect(() => {
     const pendingInputKey = pendingFocusInputKeyRef.current
@@ -1051,32 +1055,26 @@ function SessionPanel({
     nextInput.select()
   }, [openGroupIds])
 
-  function handleInputTabNavigation(
-    event: React.KeyboardEvent<HTMLInputElement>,
-    inputKey: string
-  ) {
-    if (event.key !== "Tab" || event.shiftKey) {
-      return
-    }
-
-    const currentIndex = orderedInputs.findIndex(
-      (entry) => entry.inputKey === inputKey
+  function handleAdvanceToNextGroup(currentGroupId: string) {
+    const currentGroupIndex = flattenedGroups.findIndex(
+      (group) => group.id === currentGroupId
     )
 
-    if (currentIndex === -1 || currentIndex === orderedInputs.length - 1) {
+    if (currentGroupIndex === -1 || currentGroupIndex === flattenedGroups.length - 1) {
       return
     }
 
-    const currentInput = orderedInputs[currentIndex]
-    const nextInput = orderedInputs[currentIndex + 1]
+    const nextGroup = flattenedGroups[currentGroupIndex + 1]
+    const nextInput = orderedInputs.find(
+      (entry) => entry.groupId === nextGroup.id
+    )
 
-    if (currentInput.groupId === nextInput.groupId) {
+    if (!nextInput) {
       return
     }
 
-    event.preventDefault()
     pendingFocusInputKeyRef.current = nextInput.inputKey
-    onOpenGroupIdsChange([nextInput.groupId])
+    onOpenGroupIdsChange([nextGroup.id])
   }
 
   function handleToggleTimerPanel(timerKey: string) {
@@ -1220,6 +1218,11 @@ function SessionPanel({
                   </div>
                   {sectionGroups.map((group) => {
                     const isOpen = openGroupIds.includes(group.id)
+                    const groupIndex = flattenedGroups.findIndex(
+                      (entry) => entry.id === group.id
+                    )
+                    const hasNextGroup =
+                      groupIndex >= 0 && groupIndex < flattenedGroups.length - 1
 
                     return (
                       <Collapsible
@@ -1407,12 +1410,6 @@ function SessionPanel({
                                                       : "w-14"
                                                   )}
                                                   id={inputId}
-                                                  onKeyDown={(event) =>
-                                                    handleInputTabNavigation(
-                                                      event,
-                                                      inputKey
-                                                    )
-                                                  }
                                                   onFocus={(event) => {
                                                     if (
                                                       event.target.value
@@ -1492,6 +1489,17 @@ function SessionPanel({
                                 }
                               )}
                             </div>
+                            {hasNextGroup ? (
+                              <button
+                                aria-hidden="true"
+                                className="sr-only"
+                                data-focus-bridge-for={group.id}
+                                onFocus={() => handleAdvanceToNextGroup(group.id)}
+                                type="button"
+                              >
+                                Next group
+                              </button>
+                            ) : null}
                           </CollapsibleContent>
                         </div>
                       </Collapsible>
