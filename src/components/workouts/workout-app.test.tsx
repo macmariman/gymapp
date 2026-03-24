@@ -1,4 +1,11 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import type { WorkoutPageData } from "@/lib/workouts/types"
@@ -331,17 +338,20 @@ describe("WorkoutApp", () => {
 
   it("opens the next group and closes the current one when focus advances past the block", async () => {
     const user = userEvent.setup()
-    const { container } = render(<WorkoutApp {...workoutPageData} />)
+    render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
-    const focusBridge = container.querySelector(
-      '[data-focus-bridge-for="group-1"]'
-    ) as HTMLButtonElement | null
+    const lastInput = screen.getByLabelText("Fondo tríceps en banco serie 3")
+    const notesTextarea = screen.getByPlaceholderText(
+      "Cómo te sentiste, ajustes..."
+    )
 
-    expect(focusBridge).not.toBeNull()
+    act(() => {
+      lastInput.focus()
+    })
 
-    focusBridge?.focus()
+    fireEvent.blur(lastInput, { relatedTarget: notesTextarea })
 
     await waitFor(() => {
       expect(

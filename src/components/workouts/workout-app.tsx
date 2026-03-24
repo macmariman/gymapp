@@ -1014,28 +1014,29 @@ function SessionPanel({
     }
   }, [timerState.runningTimerKey])
 
-  const orderedInputs = React.useMemo(
-    () =>
-      routine.sections.flatMap((section) =>
-        section.groups
-          .filter((group) => group.exercises.length > 0)
-          .flatMap((group) =>
-            Array.from({ length: group.series }, (_, index) => {
-              const setNumber = index + 1
-
-              return group.exercises.map((exercise) => ({
-                groupId: group.id,
-                inputKey: buildWeightInputKey(exercise.id, setNumber),
-              }))
-            }).flat()
-          )
-      ),
-    [routine]
-  )
   const flattenedGroups = React.useMemo(
     () => getFlattenedSessionGroups(routine),
     [routine]
   )
+
+  const groupBoundaryInputs = React.useMemo(() => {
+    const map = new Map<string, string>()
+
+    for (let i = 0; i < flattenedGroups.length - 1; i++) {
+      const group = flattenedGroups[i]
+      const lastSetNumber = group.series
+      const lastExercise = group.exercises[group.exercises.length - 1]
+
+      if (lastExercise) {
+        map.set(
+          buildWeightInputKey(lastExercise.id, lastSetNumber),
+          group.id
+        )
+      }
+    }
+
+    return map
+  }, [flattenedGroups])
 
   useEffect(() => {
     const pendingInputKey = pendingFocusInputKeyRef.current
@@ -1065,15 +1066,13 @@ function SessionPanel({
     }
 
     const nextGroup = flattenedGroups[currentGroupIndex + 1]
-    const nextInput = orderedInputs.find(
-      (entry) => entry.groupId === nextGroup.id
-    )
+    const firstExercise = nextGroup.exercises[0]
 
-    if (!nextInput) {
+    if (!firstExercise) {
       return
     }
 
-    pendingFocusInputKeyRef.current = nextInput.inputKey
+    pendingFocusInputKeyRef.current = buildWeightInputKey(firstExercise.id, 1)
     onOpenGroupIdsChange([nextGroup.id])
   }
 
@@ -1218,11 +1217,6 @@ function SessionPanel({
                   </div>
                   {sectionGroups.map((group) => {
                     const isOpen = openGroupIds.includes(group.id)
-                    const groupIndex = flattenedGroups.findIndex(
-                      (entry) => entry.id === group.id
-                    )
-                    const hasNextGroup =
-                      groupIndex >= 0 && groupIndex < flattenedGroups.length - 1
 
                     return (
                       <Collapsible
@@ -1409,6 +1403,7 @@ function SessionPanel({
                                                       ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
                                                       : "w-14"
                                                   )}
+                                                  data-workout-input
                                                   id={inputId}
                                                   onFocus={(event) => {
                                                     if (
@@ -1431,7 +1426,7 @@ function SessionPanel({
                                                       )
                                                     )
                                                   }
-                                                  onBlur={(event) =>
+                                                  onBlur={(event) => {
                                                     onValueBlur(
                                                       inputKey,
                                                       normalizeExerciseInputValueOnBlur(
@@ -1439,7 +1434,37 @@ function SessionPanel({
                                                         event.target.value
                                                       )
                                                     )
-                                                  }
+
+                                                    const boundaryGroupId =
+                                                      groupBoundaryInputs.get(inputKey)
+
+                                                    if (!boundaryGroupId) {
+                                                      return
+                                                    }
+
+                                                    const nextFocused =
+                                                      event.relatedTarget
+
+                                                    if (
+                                                      nextFocused instanceof
+                                                        HTMLElement &&
+                                                      "workoutInput" in
+                                                        nextFocused.dataset
+                                                    ) {
+                                                      return
+                                                    }
+
+                                                    if (
+                                                      nextFocused instanceof
+                                                        HTMLInputElement ||
+                                                      nextFocused instanceof
+                                                        HTMLTextAreaElement
+                                                    ) {
+                                                      handleAdvanceToNextGroup(
+                                                        boundaryGroupId
+                                                      )
+                                                    }
+                                                  }}
                                                   placeholder={getInputPlaceholderForFormat(
                                                     exercise.logType,
                                                     exercise.durationFormat
@@ -1489,17 +1514,6 @@ function SessionPanel({
                                 }
                               )}
                             </div>
-                            {hasNextGroup ? (
-                              <button
-                                aria-hidden="true"
-                                className="sr-only"
-                                data-focus-bridge-for={group.id}
-                                onFocus={() => handleAdvanceToNextGroup(group.id)}
-                                type="button"
-                              >
-                                Next group
-                              </button>
-                            ) : null}
                           </CollapsibleContent>
                         </div>
                       </Collapsible>
