@@ -3,7 +3,7 @@ import { z } from "zod"
 import type { CreateWorkoutSessionInput } from "@/lib/workouts/types"
 
 const loggedValueSchema = z
-  .union([z.number().positive(), z.string().trim().min(1)])
+  .union([z.number().nonnegative(), z.string().trim().min(1)])
   .transform((value) => String(value).trim())
 
 export const createWorkoutSessionSchema = z

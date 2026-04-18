@@ -45,6 +45,22 @@ describe("parseCreateWorkoutSessionInput", () => {
     expect(result.setLogs[0]?.value).toBe("15:00")
   })
 
+  it("accepts zero values for downstream exercise-specific validation", () => {
+    const result = parseCreateWorkoutSessionInput({
+      routineId: "routine-1",
+      setLogs: [
+        {
+          exerciseId: "exercise-1",
+          slotExerciseId: "exercise-1",
+          setNumber: 1,
+          value: 0,
+        },
+      ],
+    })
+
+    expect(result.setLogs[0]?.value).toBe("0")
+  })
+
   it("rejects duplicate exercise/set pairs", () => {
     expect(() =>
       parseCreateWorkoutSessionInput({

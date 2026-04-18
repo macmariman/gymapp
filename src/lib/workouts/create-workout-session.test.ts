@@ -101,6 +101,54 @@ describe("createWorkoutSession", () => {
     expect(mockedCreate).toHaveBeenCalled()
   })
 
+  it("creates a weight session with zero load", async () => {
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-1",
+            slotExerciseId: "exercise-1",
+            setNumber: 1,
+            value: "0",
+          },
+        ],
+      })
+    ).resolves.toEqual({ id: "session-1" })
+
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          setLogs: {
+            create: [
+              expect.objectContaining({
+                exerciseId: "exercise-1",
+                setNumber: 1,
+                weightKg: "0.00",
+              }),
+            ],
+          },
+        }),
+      })
+    )
+  })
+
+  it("rejects negative weight values", async () => {
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-1",
+            slotExerciseId: "exercise-1",
+            setNumber: 1,
+            value: "-1",
+          },
+        ],
+      })
+    ).rejects.toThrow("The submitted value is invalid.")
+  })
+
   it("creates a running session from mm:ss input", async () => {
     await expect(
       createWorkoutSession({
@@ -179,6 +227,22 @@ describe("createWorkoutSession", () => {
         }),
       })
     )
+  })
+
+  it("rejects zero numeric time values", async () => {
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-5",
+            slotExerciseId: "exercise-5",
+            setNumber: 1,
+            value: "0",
+          },
+        ],
+      })
+    ).rejects.toThrow("The submitted value is invalid.")
   })
 
   it("rejects exercises outside the selected routine", async () => {

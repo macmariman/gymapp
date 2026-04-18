@@ -30,14 +30,22 @@ function normalizeLoggedValue(
 
   const parsedValue = Number(value)
 
-  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+  if (!Number.isFinite(parsedValue)) {
     throw new Error("The submitted value is invalid.")
   }
 
   if (logType === "weight") {
+    if (parsedValue < 0) {
+      throw new Error("The submitted value is invalid.")
+    }
+
     return {
       weightKg: parsedValue.toFixed(2),
     }
+  }
+
+  if (parsedValue <= 0) {
+    throw new Error("The submitted value is invalid.")
   }
 
   if (!Number.isInteger(parsedValue)) {
