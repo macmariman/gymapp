@@ -649,6 +649,92 @@ describe("WorkoutApp", () => {
     )
   })
 
+  it("adds a day exercise to a block and submits it with the group id", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Agregar ejercicio del día",
+      })
+    )
+
+    const dialog = screen.getByRole("dialog")
+    expect(within(dialog).getByText("Elegir ejercicio")).toBeInTheDocument()
+    expect(within(dialog).getByText("Remo con barra")).toBeInTheDocument()
+    expect(
+      within(dialog).queryByText("Pecho plano con barra")
+    ).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByText("Remo con barra"))
+
+    expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
+    expect(screen.getByLabelText("Remo con barra serie 2")).toBeInTheDocument()
+    expect(screen.getByLabelText("Remo con barra serie 3")).toBeInTheDocument()
+    expect(screen.getByLabelText("Remo con barra serie 1")).toHaveValue("50")
+    expect(screen.getByLabelText("Remo con barra serie 2")).toHaveValue("52.5")
+    expect(screen.getByLabelText("Remo con barra serie 3")).toHaveValue("")
+    expect(
+      screen.queryByLabelText("Remo con barra serie 4")
+    ).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText("Remo con barra serie 1"))
+    await user.type(screen.getByLabelText("Remo con barra serie 1"), "55")
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    const [, request] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const payload = JSON.parse(String(request.body)) as {
+      setLogs: Array<{
+        exerciseId: string
+        groupId?: string
+        setNumber: number
+        value: string
+      }>
+    }
+
+    expect(payload.setLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: "exercise-3",
+          groupId: "group-1",
+          setNumber: 1,
+          value: "55",
+        }),
+      ])
+    )
+  })
+
+  it("removes a day exercise before saving", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Agregar ejercicio del día",
+      })
+    )
+    await user.click(within(screen.getByRole("dialog")).getByText("Remo con barra"))
+
+    expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
+
+    await user.click(
+      screen.getAllByRole("button", { name: "Quitar Remo con barra" })[0]
+    )
+
+    expect(
+      screen.queryByLabelText("Remo con barra serie 1")
+    ).not.toBeInTheDocument()
+  })
+
   it("collapses the attendance card content from the header trigger", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)

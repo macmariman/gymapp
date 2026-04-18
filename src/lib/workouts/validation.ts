@@ -17,12 +17,23 @@ export const createWorkoutSessionSchema = z
       .transform((value) => (value && value.length > 0 ? value : undefined)),
     setLogs: z
       .array(
-        z.object({
-          exerciseId: z.string().trim().min(1),
-          slotExerciseId: z.string().trim().min(1),
-          setNumber: z.number().int().positive(),
-          value: loggedValueSchema,
-        })
+        z
+          .object({
+            exerciseId: z.string().trim().min(1),
+            slotExerciseId: z.string().trim().min(1).optional(),
+            groupId: z.string().trim().min(1).optional(),
+            setNumber: z.number().int().positive(),
+            value: loggedValueSchema,
+          })
+          .refine(
+            (setLog) =>
+              (setLog.slotExerciseId ? 1 : 0) + (setLog.groupId ? 1 : 0) ===
+              1,
+            {
+              message: "Set entries must include exactly one target.",
+              path: ["slotExerciseId"],
+            }
+          )
       )
       .min(1),
   })
@@ -30,7 +41,7 @@ export const createWorkoutSessionSchema = z
     const duplicates = new Set<string>()
 
     value.setLogs.forEach((setLog, index) => {
-      const duplicateKey = `${setLog.slotExerciseId}:${setLog.setNumber}`
+      const duplicateKey = `${setLog.exerciseId}:${setLog.setNumber}`
 
       if (duplicates.has(duplicateKey)) {
         ctx.addIssue({

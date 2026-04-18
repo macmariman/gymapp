@@ -61,9 +61,10 @@ function normalizeLoggedValue(
       }
 }
 
-function indexLoggableExercisesById(
+function indexRoutineTargets(
   sections: Array<{
     groups: Array<{
+      id: string
       series: number
       exercises: Array<{
         id: string
@@ -83,9 +84,14 @@ function indexLoggableExercisesById(
       maxSets: number
     }
   >()
+  const groupMap = new Map<string, { maxSets: number }>()
 
   for (const section of sections) {
     for (const group of section.groups) {
+      groupMap.set(group.id, {
+        maxSets: group.series,
+      })
+
       for (const exercise of group.exercises) {
         if (exercise.logType === "none") {
           continue
@@ -100,7 +106,51 @@ function indexLoggableExercisesById(
     }
   }
 
-  return exerciseMap
+  return {
+    exerciseMap,
+    groupMap,
+  }
+}
+
+async function getDayExerciseMap(exerciseIds: string[]) {
+  if (exerciseIds.length === 0) {
+    return new Map<
+      string,
+      {
+        logType: Exclude<ExerciseLogType, "none">
+        durationFormat: ExerciseDurationFormat
+      }
+    >()
+  }
+
+  const exercises = await prisma.exercise.findMany({
+    where: {
+      id: {
+        in: exerciseIds,
+      },
+    },
+    select: {
+      id: true,
+      logType: true,
+      movement: {
+        select: {
+          durationFormat: true,
+        },
+      },
+    },
+  })
+
+  return new Map(
+    exercises
+      .filter((exercise) => exercise.logType !== "none")
+      .map((exercise) => [
+        exercise.id,
+        {
+          logType: exercise.logType as Exclude<ExerciseLogType, "none">,
+          durationFormat: exercise.movement.durationFormat,
+        },
+      ])
+  )
 }
 
 async function validateRoutineSessionInput(input: CreateWorkoutSessionInput) {
@@ -135,24 +185,50 @@ async function validateRoutineSessionInput(input: CreateWorkoutSessionInput) {
     throw new Error("The selected routine does not exist.")
   }
 
-  const exerciseMap = indexLoggableExercisesById(routine.sections)
+  const { exerciseMap: routineExerciseMap, groupMap } = indexRoutineTargets(
+    routine.sections
+  )
+  const dayExerciseIds = Array.from(
+    new Set(
+      input.setLogs
+        .filter((setLog) => setLog.groupId)
+        .map((setLog) => setLog.exerciseId)
+    )
+  )
+  const dayExerciseMap = await getDayExerciseMap(dayExerciseIds)
+
   const normalizedSetLogs = input.setLogs.map((setLog) => {
-    const exerciseMeta = exerciseMap.get(setLog.exerciseId)
-    const slotMeta = exerciseMap.get(setLog.slotExerciseId)
+    const slotMeta = setLog.slotExerciseId
+      ? routineExerciseMap.get(setLog.slotExerciseId)
+      : null
+    const groupMeta = setLog.groupId ? groupMap.get(setLog.groupId) : null
+    const exerciseMeta = setLog.groupId
+      ? dayExerciseMap.get(setLog.exerciseId)
+      : routineExerciseMap.get(setLog.exerciseId)
 
     if (!exerciseMeta) {
       throw new Error(
-        "The submitted exercise does not belong to the selected routine."
+        setLog.groupId
+          ? "The submitted exercise does not exist or cannot be logged."
+          : "The submitted exercise does not belong to the selected routine."
       )
     }
 
-    if (!slotMeta) {
+    if (setLog.slotExerciseId && !slotMeta) {
       throw new Error(
         "The submitted exercise slot does not belong to the selected routine."
       )
     }
 
-    if (setLog.setNumber > slotMeta.maxSets) {
+    if (setLog.groupId && !groupMeta) {
+      throw new Error(
+        "The submitted exercise group does not belong to the selected routine."
+      )
+    }
+
+    const maxSets = slotMeta?.maxSets ?? groupMeta?.maxSets
+
+    if (!maxSets || setLog.setNumber > maxSets) {
       throw new Error(
         "The submitted set number exceeds the configured number of series."
       )

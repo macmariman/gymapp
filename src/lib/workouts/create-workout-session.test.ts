@@ -7,6 +7,9 @@ jest.mock("next/cache", () => ({
 
 jest.mock("@/lib/prisma", () => ({
   prisma: {
+    exercise: {
+      findMany: jest.fn(),
+    },
     routine: {
       findUnique: jest.fn(),
     },
@@ -17,6 +20,7 @@ jest.mock("@/lib/prisma", () => ({
 }))
 
 describe("createWorkoutSession", () => {
+  const mockedExerciseFindMany = jest.mocked(prisma.exercise.findMany)
   const mockedFindUnique = jest.mocked(prisma.routine.findUnique)
   const mockedCreate = jest.mocked(prisma.workoutSession.create)
 
@@ -27,6 +31,7 @@ describe("createWorkoutSession", () => {
         {
           groups: [
             {
+              id: "group-1",
               series: 3,
               exercises: [
                 {
@@ -46,6 +51,7 @@ describe("createWorkoutSession", () => {
               ],
             },
             {
+              id: "group-2",
               series: 4,
               exercises: [
                 {
@@ -58,6 +64,7 @@ describe("createWorkoutSession", () => {
               ],
             },
             {
+              id: "group-3",
               series: 1,
               exercises: [
                 {
@@ -80,6 +87,7 @@ describe("createWorkoutSession", () => {
         },
       ],
     } as never)
+    mockedExerciseFindMany.mockResolvedValue([] as never)
     mockedCreate.mockResolvedValue({ id: "session-1" } as never)
   })
 
@@ -260,6 +268,132 @@ describe("createWorkoutSession", () => {
       })
     ).rejects.toThrow(
       "The submitted exercise does not belong to the selected routine."
+    )
+  })
+
+  it("creates a session with a day exercise outside the selected routine", async () => {
+    mockedExerciseFindMany.mockResolvedValueOnce([
+      {
+        id: "exercise-999",
+        logType: "weight",
+        movement: {
+          durationFormat: "seconds",
+        },
+      },
+    ] as never)
+
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-999",
+            groupId: "group-1",
+            setNumber: 1,
+            value: "40",
+          },
+        ],
+      })
+    ).resolves.toEqual({ id: "session-1" })
+
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          setLogs: {
+            create: [
+              expect.objectContaining({
+                exerciseId: "exercise-999",
+                setNumber: 1,
+                weightKg: "40.00",
+              }),
+            ],
+          },
+        }),
+      })
+    )
+  })
+
+  it("rejects day exercises with groups outside the selected routine", async () => {
+    mockedExerciseFindMany.mockResolvedValueOnce([
+      {
+        id: "exercise-999",
+        logType: "weight",
+        movement: {
+          durationFormat: "seconds",
+        },
+      },
+    ] as never)
+
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-999",
+            groupId: "group-999",
+            setNumber: 1,
+            value: "40",
+          },
+        ],
+      })
+    ).rejects.toThrow(
+      "The submitted exercise group does not belong to the selected routine."
+    )
+  })
+
+  it("rejects day exercises that do not exist or cannot be logged", async () => {
+    mockedExerciseFindMany.mockResolvedValueOnce([
+      {
+        id: "exercise-999",
+        logType: "none",
+        movement: {
+          durationFormat: "seconds",
+        },
+      },
+    ] as never)
+
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-999",
+            groupId: "group-1",
+            setNumber: 1,
+            value: "40",
+          },
+        ],
+      })
+    ).rejects.toThrow(
+      "The submitted exercise does not exist or cannot be logged."
+    )
+  })
+
+  it("rejects day exercise set numbers above the selected group series", async () => {
+    mockedExerciseFindMany.mockResolvedValueOnce([
+      {
+        id: "exercise-999",
+        logType: "weight",
+        movement: {
+          durationFormat: "seconds",
+        },
+      },
+    ] as never)
+
+    await expect(
+      createWorkoutSession({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-999",
+            groupId: "group-1",
+            setNumber: 4,
+            value: "40",
+          },
+        ],
+      })
+    ).rejects.toThrow(
+      "The submitted set number exceeds the configured number of series."
     )
   })
 

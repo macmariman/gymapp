@@ -70,7 +70,8 @@ export type CreateWorkoutSessionInput = {
   note?: string
   setLogs: {
     exerciseId: string
-    slotExerciseId: string
+    slotExerciseId?: string
+    groupId?: string
     setNumber: number
     value: string
   }[]

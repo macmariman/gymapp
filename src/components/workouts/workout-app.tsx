@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   NotebookPen,
+  Plus,
   X,
 } from "lucide-react"
 
@@ -64,6 +65,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 
 const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
 
@@ -73,12 +82,15 @@ type SubmissionState =
   | { type: "error"; message: string }
 
 type SlotAssignments = Record<string, string>
+type DayExerciseAssignments = Record<string, string[]>
 
 type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
   slotId: string
   originalExerciseName: string
   assignedExerciseId: string
   isSwapped: boolean
+  isDayExercise: boolean
+  groupId: string | null
 }
 
 type SessionGroupView = Omit<ExerciseGroupView, "exercises"> & {
@@ -187,9 +199,25 @@ function findSlotIdByAssignedExercise(
   )
 }
 
+function getLoggableExercisesById(routines: RoutineWithStructure[]) {
+  return new Map(
+    routines.flatMap((routine) =>
+      routine.sections.flatMap((section) =>
+        section.groups.flatMap((group) =>
+          group.exercises
+            .filter((exercise) => isExerciseLoggable(exercise.logType))
+            .map((exercise) => [exercise.id, exercise] as const)
+        )
+      )
+    )
+  )
+}
+
 function buildSessionRoutine(
   routine: RoutineWithStructure | undefined,
-  slotAssignments: SlotAssignments
+  slotAssignments: SlotAssignments,
+  dayExercisesByGroupId: DayExerciseAssignments,
+  exerciseCatalogById: Map<string, ExerciseGroupView["exercises"][number]>
 ): SessionRoutineWithStructure | undefined {
   if (!routine) {
     return undefined
@@ -211,22 +239,43 @@ function buildSessionRoutine(
       ...section,
       groups: section.groups.map((group) => ({
         ...group,
-        exercises: group.exercises
-          .filter((exercise) => isExerciseLoggable(exercise.logType))
-          .map((exercise) => {
-            const assignedExerciseId =
-              slotAssignments[exercise.id] ?? exercise.id
-            const assignedExercise =
-              exerciseById.get(assignedExerciseId) ?? exercise
+        exercises: [
+          ...group.exercises
+            .filter((exercise) => isExerciseLoggable(exercise.logType))
+            .map((exercise) => {
+              const assignedExerciseId =
+                slotAssignments[exercise.id] ?? exercise.id
+              const assignedExercise =
+                exerciseById.get(assignedExerciseId) ?? exercise
 
-            return {
-              ...assignedExercise,
-              slotId: exercise.id,
+              return {
+                ...assignedExercise,
+                slotId: exercise.id,
+                originalExerciseName: exercise.name,
+                assignedExerciseId,
+                isSwapped: assignedExerciseId !== exercise.id,
+                isDayExercise: false,
+                groupId: null,
+              }
+            }),
+          ...(dayExercisesByGroupId[group.id] ?? [])
+            .map((exerciseId) => exerciseCatalogById.get(exerciseId))
+            .filter(
+              (
+                exercise
+              ): exercise is ExerciseGroupView["exercises"][number] =>
+                exercise !== undefined
+            )
+            .map((exercise) => ({
+              ...exercise,
+              slotId: `day-${group.id}-${exercise.id}`,
               originalExerciseName: exercise.name,
-              assignedExerciseId,
-              isSwapped: assignedExerciseId !== exercise.id,
-            }
-          }),
+              assignedExerciseId: exercise.id,
+              isSwapped: false,
+              isDayExercise: true,
+              groupId: group.id,
+            })),
+        ],
       })),
     })),
   }
@@ -321,6 +370,26 @@ function buildInitialValues(routine: RoutineWithStructure | undefined) {
       })
 
       return sectionAccumulator
+    },
+    {}
+  )
+}
+
+function buildExerciseValues(
+  exercise: ExerciseGroupView["exercises"][number],
+  series: number
+) {
+  return exercise.lastLogValues.reduce<Record<string, string>>(
+    (exerciseValues, value, index) => {
+      const setNumber = index + 1
+
+      if (setNumber > series) {
+        return exerciseValues
+      }
+
+      exerciseValues[buildWeightInputKey(exercise.id, setNumber)] = value
+
+      return exerciseValues
     },
     {}
   )
@@ -887,6 +956,88 @@ function ExerciseSwapDialog({
   )
 }
 
+function DayExerciseDialog({
+  open,
+  routineDetails,
+  selectedExerciseIds,
+  onOpenChange,
+  onSelectExercise,
+}: {
+  open: boolean
+  routineDetails: RoutineWithStructure[]
+  selectedExerciseIds: Set<string>
+  onOpenChange: (open: boolean) => void
+  onSelectExercise: (exerciseId: string) => void
+}) {
+  const candidateRoutines = routineDetails
+    .map((routine) => ({
+      ...routine,
+      sections: routine.sections
+        .map((section) => ({
+          ...section,
+          groups: section.groups
+            .map((group) => ({
+              ...group,
+              exercises: group.exercises.filter(
+                (exercise) =>
+                  isExerciseLoggable(exercise.logType) &&
+                  !selectedExerciseIds.has(exercise.id)
+              ),
+            }))
+            .filter((group) => group.exercises.length > 0),
+        }))
+        .filter((section) => section.groups.length > 0),
+    }))
+    .filter((routine) => routine.sections.length > 0)
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl"
+      >
+        <DialogHeader className="border-b-2 border-border px-4 py-4 text-left">
+          <DialogTitle className="text-lg font-bold uppercase tracking-wide">
+            Elegir ejercicio
+          </DialogTitle>
+        </DialogHeader>
+        <Command className="min-h-0">
+          <CommandInput placeholder="Buscar ejercicio..." />
+          <CommandList className="max-h-[60vh]">
+            <CommandEmpty>
+              No hay ejercicios disponibles para agregar.
+            </CommandEmpty>
+            {candidateRoutines.map((routine) => (
+              <CommandGroup heading={routine.name} key={routine.id}>
+                {routine.sections.flatMap((section) =>
+                  section.groups.flatMap((group) =>
+                    group.exercises.map((exercise) => (
+                      <CommandItem
+                        key={`${routine.id}-${section.id}-${group.id}-${exercise.id}`}
+                        onSelect={() => onSelectExercise(exercise.id)}
+                        value={`${routine.name} ${section.name} ${group.name} ${exercise.name}`}
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate font-bold">
+                            {exercise.name}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {section.name}
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))
+                  )
+                )}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function SessionPanel({
   routine,
   selectedRoutineId,
@@ -900,6 +1051,8 @@ function SessionPanel({
   onValueBlur,
   onStartSwap,
   onUndoSwap,
+  onStartAddDayExercise,
+  onRemoveDayExercise,
   onSubmit,
   panelRef,
 }: {
@@ -915,6 +1068,8 @@ function SessionPanel({
   onValueBlur: (key: string, value: string) => void
   onStartSwap: (slotId: string) => void
   onUndoSwap: (slotId: string) => void
+  onStartAddDayExercise: (groupId: string) => void
+  onRemoveDayExercise: (groupId: string, exerciseId: string) => void
   onSubmit: () => Promise<void>
   panelRef: React.RefObject<HTMLDivElement | null>
 }) {
@@ -1283,6 +1438,14 @@ function SessionPanel({
 
                           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                             <div className="space-y-2 pt-2">
+                              <button
+                                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                onClick={() => onStartAddDayExercise(group.id)}
+                                type="button"
+                              >
+                                <Plus className="size-3.5" />
+                                Agregar ejercicio del día
+                              </button>
                               {Array.from(
                                 { length: group.series },
                                 (_, index) => {
@@ -1337,31 +1500,47 @@ function SessionPanel({
                                               )}
                                             >
                                               <div className="min-w-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2">
-                                                <button
-                                                  aria-label={
-                                                    exercise.isSwapped
-                                                      ? "Deshacer intercambio"
-                                                      : "Intercambiar"
-                                                  }
-                                                  className={cn(
-                                                    "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
-                                                    exercise.isSwapped
-                                                      ? "text-amber-600 hover:bg-amber-100"
-                                                      : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
-                                                  )}
-                                                  onClick={() =>
-                                                    exercise.isSwapped
-                                                      ? onUndoSwap(
-                                                          exercise.slotId
-                                                        )
-                                                      : onStartSwap(
-                                                          exercise.slotId
-                                                        )
-                                                  }
-                                                  type="button"
-                                                >
-                                                  <ArrowRightLeft className="size-3.5" />
-                                                </button>
+                                                {exercise.isDayExercise ? (
+                                                  <button
+                                                    aria-label={`Quitar ${exercise.name}`}
+                                                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-muted-foreground"
+                                                    onClick={() =>
+                                                      onRemoveDayExercise(
+                                                        group.id,
+                                                        exercise.id
+                                                      )
+                                                    }
+                                                    type="button"
+                                                  >
+                                                    <X className="size-3.5" />
+                                                  </button>
+                                                ) : (
+                                                  <button
+                                                    aria-label={
+                                                      exercise.isSwapped
+                                                        ? "Deshacer intercambio"
+                                                        : "Intercambiar"
+                                                    }
+                                                    className={cn(
+                                                      "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
+                                                      exercise.isSwapped
+                                                        ? "text-amber-600 hover:bg-amber-100"
+                                                        : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+                                                    )}
+                                                    onClick={() =>
+                                                      exercise.isSwapped
+                                                        ? onUndoSwap(
+                                                            exercise.slotId
+                                                          )
+                                                        : onStartSwap(
+                                                            exercise.slotId
+                                                          )
+                                                    }
+                                                    type="button"
+                                                  >
+                                                    <ArrowRightLeft className="size-3.5" />
+                                                  </button>
+                                                )}
                                                 <div className="min-w-0">
                                                   <div className="flex flex-wrap items-center gap-1.5">
                                                     <Link
@@ -1573,6 +1752,10 @@ export function WorkoutApp({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const exerciseCatalogById = React.useMemo(
+    () => getLoggableExercisesById(routineDetails),
+    [routineDetails]
+  )
   const requestedRoutineId = searchParams.get("routineId")
   const requestedSlotId = searchParams.get("slotId")
   const preferredRoutineId =
@@ -1594,11 +1777,18 @@ export function WorkoutApp({
   const [values, setValues] = useState<Record<string, string>>({})
   const [slotAssignments, setSlotAssignments] = useState<SlotAssignments>({})
   const [swapSourceSlotId, setSwapSourceSlotId] = useState<string | null>(null)
+  const [dayExercisesByGroupId, setDayExercisesByGroupId] =
+    useState<DayExerciseAssignments>({})
+  const [dayExerciseTargetGroupId, setDayExerciseTargetGroupId] = useState<
+    string | null
+  >(null)
   const [openGroupIds, setOpenGroupIds] = useState<string[]>(() =>
     getDefaultOpenGroupIds(
       buildSessionRoutine(
         initialSelectedRoutine,
-        buildInitialSlotAssignments(initialSelectedRoutine)
+        buildInitialSlotAssignments(initialSelectedRoutine),
+        {},
+        exerciseCatalogById
       ),
       requestedSlotId
     )
@@ -1615,12 +1805,29 @@ export function WorkoutApp({
     routineDetails.find((routine) => routine.id === selectedRoutineId) ??
     routineDetails[0]
   const sessionRoutine = React.useMemo(
-    () => buildSessionRoutine(selectedRoutine, slotAssignments),
-    [selectedRoutine, slotAssignments]
+    () =>
+      buildSessionRoutine(
+        selectedRoutine,
+        slotAssignments,
+        dayExercisesByGroupId,
+        exerciseCatalogById
+      ),
+    [dayExercisesByGroupId, exerciseCatalogById, selectedRoutine, slotAssignments]
   )
   const swapSourceExercise = React.useMemo(
     () => getSessionExerciseBySlotId(sessionRoutine, swapSourceSlotId),
     [sessionRoutine, swapSourceSlotId]
+  )
+  const selectedExerciseIds = React.useMemo(
+    () =>
+      new Set(
+        sessionRoutine?.sections.flatMap((section) =>
+          section.groups.flatMap((group) =>
+            group.exercises.map((exercise) => exercise.id)
+          )
+        ) ?? []
+      ),
+    [sessionRoutine]
   )
 
   useEffect(() => {
@@ -1633,6 +1840,8 @@ export function WorkoutApp({
     setValues(buildInitialValues(selectedRoutine))
     setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
     setSwapSourceSlotId(null)
+    setDayExercisesByGroupId({})
+    setDayExerciseTargetGroupId(null)
     setNote("")
     setStatus({
       type: "idle",
@@ -1646,12 +1855,14 @@ export function WorkoutApp({
       getDefaultOpenGroupIds(
         buildSessionRoutine(
           selectedRoutine,
-          buildInitialSlotAssignments(selectedRoutine)
+          buildInitialSlotAssignments(selectedRoutine),
+          {},
+          exerciseCatalogById
         ),
         requestedSlotId
       )
     )
-  }, [selectedRoutine, requestedSlotId])
+  }, [exerciseCatalogById, selectedRoutine, requestedSlotId])
 
   useEffect(() => {
     if (!shouldScrollToRoutine) {
@@ -1736,6 +1947,69 @@ export function WorkoutApp({
     setSwapSourceSlotId(null)
   }
 
+  function handleStartAddDayExercise(groupId: string) {
+    setDayExerciseTargetGroupId(groupId)
+  }
+
+  function handleSelectDayExercise(exerciseId: string) {
+    const groupId = dayExerciseTargetGroupId
+    const exercise = exerciseCatalogById.get(exerciseId)
+    const group = getFlattenedSessionGroups(sessionRoutine).find(
+      (currentGroup) => currentGroup.id === groupId
+    )
+
+    if (!groupId || !exercise || !group || selectedExerciseIds.has(exerciseId)) {
+      setDayExerciseTargetGroupId(null)
+      return
+    }
+
+    setDayExercisesByGroupId((currentAssignments) => {
+      const groupExerciseIds = currentAssignments[groupId] ?? []
+
+      if (groupExerciseIds.includes(exerciseId)) {
+        return currentAssignments
+      }
+
+      return {
+        ...currentAssignments,
+        [groupId]: [...groupExerciseIds, exerciseId],
+      }
+    })
+    setValues((currentValues) => ({
+      ...currentValues,
+      ...buildExerciseValues(exercise, group.series),
+    }))
+    setDayExerciseTargetGroupId(null)
+  }
+
+  function handleRemoveDayExercise(groupId: string, exerciseId: string) {
+    setDayExercisesByGroupId((currentAssignments) => {
+      const nextGroupExerciseIds = (currentAssignments[groupId] ?? []).filter(
+        (currentExerciseId) => currentExerciseId !== exerciseId
+      )
+
+      if (nextGroupExerciseIds.length === 0) {
+        return Object.fromEntries(
+          Object.entries(currentAssignments).filter(
+            ([currentGroupId]) => currentGroupId !== groupId
+          )
+        )
+      }
+
+      return {
+        ...currentAssignments,
+        [groupId]: nextGroupExerciseIds,
+      }
+    })
+    setValues((currentValues) =>
+      Object.fromEntries(
+        Object.entries(currentValues).filter(
+          ([key]) => !key.startsWith(`${exerciseId}:`)
+        )
+      )
+    )
+  }
+
   async function handleSubmit() {
     if (!selectedRoutine || !sessionRoutine || isSubmitting) {
       return
@@ -1753,15 +2027,23 @@ export function WorkoutApp({
               return null
             }
 
-            return {
-              exerciseId: exercise.id,
-              slotExerciseId: exercise.slotId,
-              setNumber,
-              value,
-            }
+            return exercise.isDayExercise
+              ? {
+                  exerciseId: exercise.id,
+                  groupId: exercise.groupId ?? group.id,
+                  setNumber,
+                  value,
+                }
+              : {
+                  exerciseId: exercise.id,
+                  slotExerciseId: exercise.slotId,
+                  setNumber,
+                  value,
+                }
           }).filter(Boolean) as Array<{
             exerciseId: string
-            slotExerciseId: string
+            slotExerciseId?: string
+            groupId?: string
             setNumber: number
             value: string
           }>
@@ -1800,6 +2082,8 @@ export function WorkoutApp({
       setValues({})
       setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
       setSwapSourceSlotId(null)
+      setDayExercisesByGroupId({})
+      setDayExerciseTargetGroupId(null)
       setNote("")
       setStatus({
         type: "success",
@@ -1841,6 +2125,17 @@ export function WorkoutApp({
         open={swapSourceExercise !== null}
         routine={sessionRoutine}
         sourceExercise={swapSourceExercise}
+      />
+      <DayExerciseDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setDayExerciseTargetGroupId(null)
+          }
+        }}
+        onSelectExercise={handleSelectDayExercise}
+        open={dayExerciseTargetGroupId !== null}
+        routineDetails={routineDetails}
+        selectedExerciseIds={selectedExerciseIds}
       />
 
       <section className="relative mb-4 overflow-hidden rounded-lg border-2 border-border bg-card px-4 py-4 shadow-brutal md:px-5 md:py-5">
@@ -1891,6 +2186,8 @@ export function WorkoutApp({
               note={note}
               onOpenGroupIdsChange={setOpenGroupIds}
               onNoteChange={setNote}
+              onRemoveDayExercise={handleRemoveDayExercise}
+              onStartAddDayExercise={handleStartAddDayExercise}
               onStartSwap={handleStartSwap}
               onSubmit={handleSubmit}
               onUndoSwap={handleUndoSwap}

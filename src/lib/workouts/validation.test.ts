@@ -61,6 +61,27 @@ describe("parseCreateWorkoutSessionInput", () => {
     expect(result.setLogs[0]?.value).toBe("0")
   })
 
+  it("accepts group targets for day exercises", () => {
+    const result = parseCreateWorkoutSessionInput({
+      routineId: "routine-1",
+      setLogs: [
+        {
+          exerciseId: "exercise-1",
+          groupId: "group-1",
+          setNumber: 1,
+          value: "60",
+        },
+      ],
+    })
+
+    expect(result.setLogs[0]).toEqual({
+      exerciseId: "exercise-1",
+      groupId: "group-1",
+      setNumber: 1,
+      value: "60",
+    })
+  })
+
   it("rejects duplicate exercise/set pairs", () => {
     expect(() =>
       parseCreateWorkoutSessionInput({
@@ -73,14 +94,31 @@ describe("parseCreateWorkoutSessionInput", () => {
             value: "60",
           },
           {
-            exerciseId: "exercise-2",
-            slotExerciseId: "exercise-1",
+            exerciseId: "exercise-1",
+            groupId: "group-1",
             setNumber: 1,
             value: "62.5",
           },
         ],
       })
     ).toThrow("Duplicate set entry.")
+  })
+
+  it("rejects set entries without exactly one target", () => {
+    expect(() =>
+      parseCreateWorkoutSessionInput({
+        routineId: "routine-1",
+        setLogs: [
+          {
+            exerciseId: "exercise-1",
+            slotExerciseId: "exercise-1",
+            groupId: "group-1",
+            setNumber: 1,
+            value: "60",
+          },
+        ],
+      })
+    ).toThrow("Set entries must include exactly one target.")
   })
 
   it("rejects sessions without sets", () => {
