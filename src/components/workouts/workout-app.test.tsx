@@ -11,6 +11,8 @@ import userEvent from "@testing-library/user-event"
 import type { WorkoutPageData } from "@/lib/workouts/types"
 import { WorkoutApp } from "@/components/workouts/workout-app"
 
+const workoutDraftKeyPrefix = "gym-app.workout-session-draft:"
+
 const workoutPageData: WorkoutPageData = {
   routines: [
     {
@@ -211,6 +213,7 @@ describe("WorkoutApp", () => {
         request: wakeLockRequestMock,
       },
     })
+    window.localStorage.clear()
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -220,6 +223,7 @@ describe("WorkoutApp", () => {
 
   afterEach(() => {
     jest.useRealTimers()
+    window.localStorage.clear()
     jest.resetAllMocks()
   })
 
@@ -388,6 +392,140 @@ describe("WorkoutApp", () => {
     ).toBeInTheDocument()
   })
 
+  it("restores a saved draft for the selected routine", async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(
+      `${workoutDraftKeyPrefix}routine-1`,
+      JSON.stringify({
+        version: 1,
+        routineId: "routine-1",
+        note: "Draft note",
+        values: {
+          "exercise-1:1": "66",
+        },
+        slotAssignments: {},
+        dayExercisesByGroupId: {},
+      })
+    )
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText("Pecho plano con barra serie 1")
+      ).toHaveValue("66")
+    })
+    expect(
+      screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
+    ).toHaveValue("Draft note")
+  })
+
+  it("keeps drafts separated by routine", async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(
+      `${workoutDraftKeyPrefix}routine-2`,
+      JSON.stringify({
+        version: 1,
+        routineId: "routine-2",
+        note: "",
+        values: {
+          "exercise-3:1": "61",
+        },
+        slotAssignments: {},
+        dayExercisesByGroupId: {},
+      })
+    )
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /rutina 2/i }))
+    await user.click(screen.getByRole("button", { name: /bloque 2/i }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Remo con barra serie 1")).toHaveValue("61")
+    })
+  })
+
+  it("clears all workout drafts after saving a session", async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(
+      `${workoutDraftKeyPrefix}routine-1`,
+      JSON.stringify({
+        version: 1,
+        routineId: "routine-1",
+        note: "",
+        values: {
+          "exercise-1:1": "66",
+        },
+        slotAssignments: {},
+        dayExercisesByGroupId: {},
+      })
+    )
+    window.localStorage.setItem(
+      `${workoutDraftKeyPrefix}routine-2`,
+      JSON.stringify({
+        version: 1,
+        routineId: "routine-2",
+        note: "",
+        values: {
+          "exercise-3:1": "61",
+        },
+        slotAssignments: {},
+        dayExercisesByGroupId: {},
+      })
+    )
+    window.localStorage.setItem("gym-app.other-cache", "keep")
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText("Pecho plano con barra serie 1")
+      ).toHaveValue("66")
+    })
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    expect(
+      window.localStorage.getItem(`${workoutDraftKeyPrefix}routine-1`)
+    ).toBe(null)
+    expect(
+      window.localStorage.getItem(`${workoutDraftKeyPrefix}routine-2`)
+    ).toBe(null)
+    expect(window.localStorage.getItem("gym-app.other-cache")).toBe("keep")
+  })
+
+  it("does not keep an empty draft after returning blank inputs to blank", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await user.type(
+      screen.getByLabelText("Fondo tríceps en banco serie 1"),
+      "10"
+    )
+
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem(`${workoutDraftKeyPrefix}routine-1`)
+      ).not.toBe(null)
+    })
+
+    await user.clear(screen.getByLabelText("Fondo tríceps en banco serie 1"))
+
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem(`${workoutDraftKeyPrefix}routine-1`)
+      ).toBe(null)
+    })
+  })
+
   it("masks the running input as mm:ss from numeric typing", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
@@ -458,7 +596,10 @@ describe("WorkoutApp", () => {
     jest.useFakeTimers()
     const lateReleaseMock = jest.fn().mockResolvedValue(undefined)
     let resolveWakeLockRequest:
-      | ((value: { released: boolean; release: typeof lateReleaseMock }) => void)
+      | ((value: {
+          released: boolean
+          release: typeof lateReleaseMock
+        }) => void)
       | null = null
 
     wakeLockRequestMock.mockImplementationOnce(
@@ -721,7 +862,9 @@ describe("WorkoutApp", () => {
         name: "Agregar ejercicio del día",
       })
     )
-    await user.click(within(screen.getByRole("dialog")).getByText("Remo con barra"))
+    await user.click(
+      within(screen.getByRole("dialog")).getByText("Remo con barra")
+    )
 
     expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
 

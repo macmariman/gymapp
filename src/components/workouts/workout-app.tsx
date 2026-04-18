@@ -41,10 +41,6 @@ import type {
   RoutineWithStructure,
   WorkoutPageData,
 } from "@/lib/workouts/types"
-import {
-  ExerciseTimerBand,
-  ExerciseTimerTrigger,
-} from "@/components/workouts/exercise-timer-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -60,12 +56,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -73,6 +63,16 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  ExerciseTimerBand,
+  ExerciseTimerTrigger,
+} from "@/components/workouts/exercise-timer-panel"
 
 const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
 
@@ -83,6 +83,14 @@ type SubmissionState =
 
 type SlotAssignments = Record<string, string>
 type DayExerciseAssignments = Record<string, string[]>
+type WorkoutSessionDraft = {
+  version: 1
+  routineId: string
+  note: string
+  values: Record<string, string>
+  slotAssignments: SlotAssignments
+  dayExercisesByGroupId: DayExerciseAssignments
+}
 
 type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
   slotId: string
@@ -126,6 +134,7 @@ const EMPTY_TIMER_STATE: ExerciseTimerState = {
   startedAtMs: null,
   elapsedByTimerKey: {},
 }
+const WORKOUT_SESSION_DRAFT_KEY_PREFIX = "gym-app.workout-session-draft:"
 
 function FloatingToast({
   status,
@@ -261,9 +270,7 @@ function buildSessionRoutine(
           ...(dayExercisesByGroupId[group.id] ?? [])
             .map((exerciseId) => exerciseCatalogById.get(exerciseId))
             .filter(
-              (
-                exercise
-              ): exercise is ExerciseGroupView["exercises"][number] =>
+              (exercise): exercise is ExerciseGroupView["exercises"][number] =>
                 exercise !== undefined
             )
             .map((exercise) => ({
@@ -392,6 +399,189 @@ function buildExerciseValues(
       return exerciseValues
     },
     {}
+  )
+}
+
+function getDraftStorageKey(routineId: string) {
+  return `${WORKOUT_SESSION_DRAFT_KEY_PREFIX}${routineId}`
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  )
+}
+
+function isDayExerciseAssignments(
+  value: unknown
+): value is DayExerciseAssignments {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every(
+      (entry) =>
+        Array.isArray(entry) &&
+        entry.every((exerciseId) => typeof exerciseId === "string")
+    )
+  )
+}
+
+function readWorkoutSessionDraft(
+  routineId: string
+): WorkoutSessionDraft | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const savedDraft = window.localStorage.getItem(
+      getDraftStorageKey(routineId)
+    )
+
+    if (!savedDraft) {
+      return null
+    }
+
+    const parsedDraft = JSON.parse(savedDraft) as Partial<WorkoutSessionDraft>
+
+    if (
+      parsedDraft.version !== 1 ||
+      parsedDraft.routineId !== routineId ||
+      typeof parsedDraft.note !== "string" ||
+      !isStringRecord(parsedDraft.values) ||
+      !isStringRecord(parsedDraft.slotAssignments) ||
+      !isDayExerciseAssignments(parsedDraft.dayExercisesByGroupId)
+    ) {
+      return null
+    }
+
+    return {
+      version: 1,
+      routineId,
+      note: parsedDraft.note,
+      values: parsedDraft.values,
+      slotAssignments: parsedDraft.slotAssignments,
+      dayExercisesByGroupId: parsedDraft.dayExercisesByGroupId,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeWorkoutSessionDraft(draft: WorkoutSessionDraft) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(
+      getDraftStorageKey(draft.routineId),
+      JSON.stringify(draft)
+    )
+  } catch {
+    // Draft persistence is best-effort and should not block the workout flow.
+  }
+}
+
+function removeWorkoutSessionDraft(routineId: string) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    window.localStorage.removeItem(getDraftStorageKey(routineId))
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function clearWorkoutSessionDrafts() {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index)
+
+      if (key?.startsWith(WORKOUT_SESSION_DRAFT_KEY_PREFIX)) {
+        window.localStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function areStringRecordsEqual(
+  firstRecord: Record<string, string>,
+  secondRecord: Record<string, string>
+) {
+  const firstEntries = Object.entries(firstRecord)
+  const secondKeys = Object.keys(secondRecord)
+
+  return (
+    firstEntries.length === secondKeys.length &&
+    firstEntries.every(([key, value]) => secondRecord[key] === value)
+  )
+}
+
+function areDayExerciseAssignmentsEqual(
+  firstAssignments: DayExerciseAssignments,
+  secondAssignments: DayExerciseAssignments
+) {
+  const firstEntries = Object.entries(firstAssignments)
+  const secondKeys = Object.keys(secondAssignments)
+
+  return (
+    firstEntries.length === secondKeys.length &&
+    firstEntries.every(([key, exerciseIds]) => {
+      const secondExerciseIds = secondAssignments[key]
+
+      return (
+        secondExerciseIds !== undefined &&
+        exerciseIds.length === secondExerciseIds.length &&
+        exerciseIds.every(
+          (exerciseId, index) => secondExerciseIds[index] === exerciseId
+        )
+      )
+    })
+  )
+}
+
+function buildDraftValues(
+  values: Record<string, string>,
+  initialValues: Record<string, string>
+) {
+  return Object.fromEntries(
+    Object.entries(values).filter(
+      ([key, value]) => value.length > 0 || key in initialValues
+    )
+  )
+}
+
+function hasWorkoutSessionDraftChanges({
+  note,
+  values,
+  slotAssignments,
+  dayExercisesByGroupId,
+  initialValues,
+  initialSlotAssignments,
+}: {
+  note: string
+  values: Record<string, string>
+  slotAssignments: SlotAssignments
+  dayExercisesByGroupId: DayExerciseAssignments
+  initialValues: Record<string, string>
+  initialSlotAssignments: SlotAssignments
+}) {
+  return (
+    note.trim().length > 0 ||
+    !areStringRecordsEqual(values, initialValues) ||
+    !areStringRecordsEqual(slotAssignments, initialSlotAssignments) ||
+    !areDayExerciseAssignmentsEqual(dayExercisesByGroupId, {})
   )
 }
 
@@ -1077,9 +1267,8 @@ function SessionPanel({
     section.groups.filter((group) => group.exercises.length > 0)
   )
   const hasWeightedGroups = groupsWithTracking.length > 0
-  const [timerState, setTimerState] = useState<ExerciseTimerState>(
-    EMPTY_TIMER_STATE
-  )
+  const [timerState, setTimerState] =
+    useState<ExerciseTimerState>(EMPTY_TIMER_STATE)
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now())
   const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
@@ -1126,14 +1315,19 @@ function SessionPanel({
     }
 
     async function requestWakeLock() {
-      if (timerState.runningTimerKey === null || typeof window === "undefined") {
+      if (
+        timerState.runningTimerKey === null ||
+        typeof window === "undefined"
+      ) {
         await releaseWakeLock()
         return
       }
 
       const wakeLockApi = (
         navigator as Navigator & {
-          wakeLock?: { request: (type: "screen") => Promise<WakeLockSentinelLike> }
+          wakeLock?: {
+            request: (type: "screen") => Promise<WakeLockSentinelLike>
+          }
         }
       ).wakeLock
 
@@ -1189,10 +1383,7 @@ function SessionPanel({
       const lastExercise = group.exercises[group.exercises.length - 1]
 
       if (lastExercise) {
-        map.set(
-          buildWeightInputKey(lastExercise.id, lastSetNumber),
-          group.id
-        )
+        map.set(buildWeightInputKey(lastExercise.id, lastSetNumber), group.id)
       }
     }
 
@@ -1222,7 +1413,10 @@ function SessionPanel({
       (group) => group.id === currentGroupId
     )
 
-    if (currentGroupIndex === -1 || currentGroupIndex === flattenedGroups.length - 1) {
+    if (
+      currentGroupIndex === -1 ||
+      currentGroupIndex === flattenedGroups.length - 1
+    ) {
       return
     }
 
@@ -1387,7 +1581,8 @@ function SessionPanel({
                             nextOpen
                               ? Array.from(new Set([...openGroupIds, group.id]))
                               : openGroupIds.filter(
-                                  (currentGroupId) => currentGroupId !== group.id
+                                  (currentGroupId) =>
+                                    currentGroupId !== group.id
                                 )
                           )
                         }
@@ -1589,8 +1784,9 @@ function SessionPanel({
                                                     }
                                                   }}
                                                   ref={(element) => {
-                                                    inputRefs.current[inputKey] =
-                                                      element
+                                                    inputRefs.current[
+                                                      inputKey
+                                                    ] = element
                                                   }}
                                                   onChange={(event) =>
                                                     onValueChange(
@@ -1611,7 +1807,9 @@ function SessionPanel({
                                                     )
 
                                                     const boundaryGroupId =
-                                                      groupBoundaryInputs.get(inputKey)
+                                                      groupBoundaryInputs.get(
+                                                        inputKey
+                                                      )
 
                                                     if (!boundaryGroupId) {
                                                       return
@@ -1772,6 +1970,8 @@ export function WorkoutApp({
   const [dayExerciseTargetGroupId, setDayExerciseTargetGroupId] = useState<
     string | null
   >(null)
+  const draftHydratedRoutineIdRef = useRef<string | null>(null)
+  const skipNextDraftWriteRef = useRef(false)
   const [openGroupIds, setOpenGroupIds] = useState<string[]>(() =>
     getDefaultOpenGroupIds(
       buildSessionRoutine(
@@ -1794,6 +1994,14 @@ export function WorkoutApp({
   const selectedRoutine =
     routineDetails.find((routine) => routine.id === selectedRoutineId) ??
     routineDetails[0]
+  const selectedRoutineInitialValues = React.useMemo(
+    () => buildInitialValues(selectedRoutine),
+    [selectedRoutine]
+  )
+  const selectedRoutineInitialSlotAssignments = React.useMemo(
+    () => buildInitialSlotAssignments(selectedRoutine),
+    [selectedRoutine]
+  )
   const sessionRoutine = React.useMemo(
     () =>
       buildSessionRoutine(
@@ -1802,7 +2010,12 @@ export function WorkoutApp({
         dayExercisesByGroupId,
         exerciseCatalogById
       ),
-    [dayExercisesByGroupId, exerciseCatalogById, selectedRoutine, slotAssignments]
+    [
+      dayExercisesByGroupId,
+      exerciseCatalogById,
+      selectedRoutine,
+      slotAssignments,
+    ]
   )
   const swapSourceExercise = React.useMemo(
     () => getSessionExerciseBySlotId(sessionRoutine, swapSourceSlotId),
@@ -1827,18 +2040,76 @@ export function WorkoutApp({
   }, [preferredRoutineId])
 
   useEffect(() => {
-    setValues(buildInitialValues(selectedRoutine))
-    setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
+    const savedDraft = selectedRoutine
+      ? readWorkoutSessionDraft(selectedRoutine.id)
+      : null
+
+    setValues(savedDraft?.values ?? selectedRoutineInitialValues)
+    setSlotAssignments(
+      savedDraft?.slotAssignments ?? selectedRoutineInitialSlotAssignments
+    )
     setSwapSourceSlotId(null)
-    setDayExercisesByGroupId({})
+    setDayExercisesByGroupId(savedDraft?.dayExercisesByGroupId ?? {})
     setDayExerciseTargetGroupId(null)
-    setNote("")
+    setNote(savedDraft?.note ?? "")
     setStatus({
       type: "idle",
       message:
         "Guardá una sesión para actualizar asistencia, últimos registros e historial.",
     })
-  }, [selectedRoutine])
+    draftHydratedRoutineIdRef.current = selectedRoutine?.id ?? null
+    skipNextDraftWriteRef.current = true
+  }, [
+    selectedRoutine,
+    selectedRoutineInitialSlotAssignments,
+    selectedRoutineInitialValues,
+  ])
+
+  useEffect(() => {
+    if (
+      !selectedRoutine ||
+      draftHydratedRoutineIdRef.current !== selectedRoutine.id
+    ) {
+      return
+    }
+
+    if (skipNextDraftWriteRef.current) {
+      skipNextDraftWriteRef.current = false
+      return
+    }
+
+    const draftValues = buildDraftValues(values, selectedRoutineInitialValues)
+    const hasDraftChanges = hasWorkoutSessionDraftChanges({
+      note,
+      values: draftValues,
+      slotAssignments,
+      dayExercisesByGroupId,
+      initialValues: selectedRoutineInitialValues,
+      initialSlotAssignments: selectedRoutineInitialSlotAssignments,
+    })
+
+    if (!hasDraftChanges) {
+      removeWorkoutSessionDraft(selectedRoutine.id)
+      return
+    }
+
+    writeWorkoutSessionDraft({
+      version: 1,
+      routineId: selectedRoutine.id,
+      note,
+      values: draftValues,
+      slotAssignments,
+      dayExercisesByGroupId,
+    })
+  }, [
+    dayExercisesByGroupId,
+    note,
+    selectedRoutine,
+    selectedRoutineInitialSlotAssignments,
+    selectedRoutineInitialValues,
+    slotAssignments,
+    values,
+  ])
 
   useEffect(() => {
     setOpenGroupIds(
@@ -1948,7 +2219,12 @@ export function WorkoutApp({
       (currentGroup) => currentGroup.id === groupId
     )
 
-    if (!groupId || !exercise || !group || selectedExerciseIds.has(exerciseId)) {
+    if (
+      !groupId ||
+      !exercise ||
+      !group ||
+      selectedExerciseIds.has(exerciseId)
+    ) {
       setDayExerciseTargetGroupId(null)
       return
     }
@@ -2069,6 +2345,8 @@ export function WorkoutApp({
         throw new Error(payload.message ?? "No se pudo guardar la sesión.")
       }
 
+      clearWorkoutSessionDrafts()
+      skipNextDraftWriteRef.current = true
       setValues({})
       setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
       setSwapSourceSlotId(null)
