@@ -1413,18 +1413,8 @@ function SessionPanel({
                                     {group.name}
                                   </div>
                                 ) : null}
-                                <div className="text-xs text-muted-foreground">
-                                  {group.series} series
-                                </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className="rounded-md border-border bg-card text-muted-foreground"
-                                >
-                                  {group.exercises.length} ejercicio
-                                  {group.exercises.length === 1 ? "" : "s"}
-                                </Badge>
                                 <ChevronDown
                                   aria-hidden="true"
                                   className={cn(
