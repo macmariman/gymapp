@@ -132,3 +132,28 @@ export type ExerciseProgressPageData = {
   availableMetrics: ExerciseProgressMetricOption[]
   sessions: ExerciseProgressSession[]
 }
+
+export type ProgressOverviewMetricMode = "best" | "volume"
+
+export type ProgressOverviewSession = {
+  id: string
+  routineId: string
+  routineName: string
+  performedAt: string
+  note: string | null
+  bestValue: number | null
+  volumeValue: number | null
+}
+
+export type ProgressOverviewMovement = {
+  id: string
+  slug: string
+  name: string
+  logType: Exclude<ExerciseLogType, "none">
+  durationFormat: ExerciseDurationFormat
+  sessions: ProgressOverviewSession[]
+}
+
+export type ProgressOverviewPageData = {
+  movements: ProgressOverviewMovement[]
+}

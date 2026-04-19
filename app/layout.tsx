@@ -53,7 +53,9 @@ export default function RootLayout({
           <ErrorBoundary>
             <div className="min-h-screen bg-[linear-gradient(180deg,#f7f8f5_0%,#eef2ec_35%,#e5ece6_100%)] dark:bg-[linear-gradient(180deg,#0f172a_0%,#111827_45%,#172033_100%)]">
               <Header />
-              {children}
+              <main className="mx-auto w-full px-2 py-4 md:px-6 md:py-6">
+                {children}
+              </main>
             </div>
           </ErrorBoundary>
         </ThemeProvider>

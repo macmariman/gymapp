@@ -2375,7 +2375,7 @@ export function WorkoutApp({
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-2 py-4 md:px-6 md:py-6">
+    <div className="mx-auto max-w-6xl">
       {status.type !== "idle" ? (
         <FloatingToast
           onClose={() => setStatus({ type: "idle", message: "" })}
@@ -2484,6 +2484,6 @@ export function WorkoutApp({
       <div className="mt-3">
         <SessionHistory history={history} />
       </div>
-    </main>
+    </div>
   )
 }

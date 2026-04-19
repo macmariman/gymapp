@@ -16,6 +16,7 @@ import type {
   AttendanceMonth,
   ExerciseGroupView,
   ExerciseProgressPageData,
+  ProgressOverviewPageData,
   RoutineSummary,
   RoutineWithStructure,
   SessionExerciseSummary,
@@ -563,6 +564,159 @@ export async function getExerciseProgressPageData(
       movement.durationFormat
     ),
     sessions,
+  }
+}
+
+export async function getProgressOverviewPageData(): Promise<ProgressOverviewPageData> {
+  const setLogs = await prisma.exerciseSetLog.findMany({
+    where: {
+      exercise: {
+        movement: {
+          logType: {
+            not: "none",
+          },
+        },
+      },
+    },
+    orderBy: [
+      {
+        session: {
+          performedAt: "asc",
+        },
+      },
+      {
+        setNumber: "asc",
+      },
+    ],
+    include: {
+      session: {
+        select: {
+          id: true,
+          performedAt: true,
+          note: true,
+          routine: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+      exercise: {
+        select: {
+          targetValue: true,
+          movement: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              logType: true,
+              durationFormat: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  const movementsById = new Map<
+    string,
+    {
+      id: string
+      slug: string
+      name: string
+      logType: Exclude<ExerciseLogType, "none">
+      durationFormat: "seconds" | "mmss"
+      sessionsById: Map<
+        string,
+        {
+          id: string
+          routineId: string
+          routineName: string
+          performedAt: string
+          note: string | null
+          values: number[]
+          sets: Array<{ value: number; targetValue: number }>
+        }
+      >
+    }
+  >()
+
+  for (const setLog of setLogs) {
+    const movement = setLog.exercise.movement
+
+    if (movement.logType === "none") {
+      continue
+    }
+
+    const value =
+      movement.logType === "weight"
+        ? setLog.weightKg === null
+          ? null
+          : Number(setLog.weightKg)
+        : movement.logType === "time"
+          ? setLog.durationSeconds
+          : setLog.repsCount
+
+    if (value === null) {
+      continue
+    }
+
+    const savedMovement = movementsById.get(movement.id) ?? {
+      id: movement.id,
+      slug: movement.slug,
+      name: movement.name,
+      logType: movement.logType,
+      durationFormat: movement.durationFormat,
+      sessionsById: new Map(),
+    }
+    const savedSession = savedMovement.sessionsById.get(setLog.sessionId) ?? {
+      id: setLog.session.id,
+      routineId: setLog.session.routine.id,
+      routineName: setLog.session.routine.name,
+      performedAt: setLog.session.performedAt.toISOString(),
+      note: setLog.session.note,
+      values: [],
+      sets: [],
+    }
+
+    savedSession.values.push(value)
+    savedSession.sets.push({
+      value,
+      targetValue: setLog.exercise.targetValue,
+    })
+    savedMovement.sessionsById.set(setLog.sessionId, savedSession)
+    movementsById.set(movement.id, savedMovement)
+  }
+
+  const movements = [...movementsById.values()]
+    .map((movement) => ({
+      id: movement.id,
+      slug: movement.slug,
+      name: movement.name,
+      logType: movement.logType,
+      durationFormat: movement.durationFormat,
+      sessions: [...movement.sessionsById.values()].map((session) => ({
+        id: session.id,
+        routineId: session.routineId,
+        routineName: session.routineName,
+        performedAt: session.performedAt,
+        note: session.note,
+        bestValue:
+          session.values.length > 0 ? Math.max(...session.values) : null,
+        volumeValue:
+          movement.logType === "weight"
+            ? session.sets.reduce(
+                (total, set) => total + set.value * set.targetValue,
+                0
+              )
+            : session.values.reduce((total, value) => total + value, 0),
+      })),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name, "es-UY"))
+
+  return {
+    movements,
   }
 }
 

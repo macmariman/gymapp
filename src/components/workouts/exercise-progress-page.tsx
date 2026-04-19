@@ -350,7 +350,7 @@ export function ExerciseProgressPage({
   }, [activeSessionId, chartSessions])
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6 md:px-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div className="flex items-center gap-3">
         <Button
           asChild
@@ -606,6 +606,6 @@ export function ExerciseProgressPage({
           </Card>
         </>
       ) : null}
-    </main>
+    </div>
   )
 }

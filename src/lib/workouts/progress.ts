@@ -12,6 +12,9 @@ import type {
   ExerciseProgressMetricOption,
   ExerciseProgressRangeKey,
   ExerciseProgressSession,
+  ProgressOverviewMetricMode,
+  ProgressOverviewMovement,
+  ProgressOverviewSession,
 } from "@/lib/workouts/types"
 
 const WEIGHT_METRICS: ExerciseProgressMetricOption[] = [
@@ -137,6 +140,110 @@ export function formatProgressMetricValue(
   return getMetricFormatter(metricKey, durationFormat)(value)
 }
 
+export function getProgressOverviewMetricValue(
+  session: ProgressOverviewSession,
+  metricMode: ProgressOverviewMetricMode
+) {
+  return metricMode === "best" ? session.bestValue : session.volumeValue
+}
+
+export function formatProgressOverviewMetricValue(
+  movement: Pick<ProgressOverviewMovement, "logType" | "durationFormat">,
+  metricMode: ProgressOverviewMetricMode,
+  value: number | null
+) {
+  if (value === null) {
+    return "Sin datos"
+  }
+
+  if (metricMode === "volume") {
+    if (movement.logType === "weight") {
+      return `${new Intl.NumberFormat("es-UY", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(value)} kg·rep`
+    }
+
+    if (movement.logType === "time") {
+      return formatDurationWithFormat(value, movement.durationFormat)
+    }
+
+    return formatReps(value)
+  }
+
+  if (movement.logType === "weight") {
+    return formatWeight(value)
+  }
+
+  if (movement.logType === "time") {
+    return formatDurationWithFormat(value, movement.durationFormat)
+  }
+
+  return formatReps(value)
+}
+
+export function getProgressChangePercent(values: number[]) {
+  const comparableValues = values.filter((value) => Number.isFinite(value))
+
+  if (comparableValues.length < 2) {
+    return null
+  }
+
+  const firstValue = comparableValues[0]
+  const lastValue = comparableValues[comparableValues.length - 1]
+
+  if (firstValue === 0) {
+    return null
+  }
+
+  return ((lastValue - firstValue) / firstValue) * 100
+}
+
+export function formatProgressChangePercent(value: number | null) {
+  if (value === null) {
+    return "Sin comparación"
+  }
+
+  const formattedValue = new Intl.NumberFormat("es-UY", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+    signDisplay: "exceptZero",
+  }).format(value)
+
+  return `${formattedValue}%`
+}
+
+export function buildNormalizedProgressSeries(
+  movement: ProgressOverviewMovement,
+  metricMode: ProgressOverviewMetricMode
+) {
+  const sessions = movement.sessions
+    .map((session) => ({
+      ...session,
+      value: getProgressOverviewMetricValue(session, metricMode),
+    }))
+    .filter(
+      (session): session is typeof session & { value: number } =>
+        session.value !== null
+    )
+
+  const firstValue = sessions[0]?.value
+
+  if (!firstValue) {
+    return []
+  }
+
+  return sessions.map((session) => ({
+    id: `${movement.id}:${session.id}`,
+    movementId: movement.id,
+    sessionId: session.id,
+    performedAt: session.performedAt,
+    routineName: session.routineName,
+    rawValue: session.value,
+    normalizedValue: (session.value / firstValue) * 100,
+  }))
+}
+
 export function getRangeLabel(range: ExerciseProgressRangeKey) {
   if (range === "3m") {
     return "3 m"
@@ -153,8 +260,8 @@ export function getRangeLabel(range: ExerciseProgressRangeKey) {
   return "Todo"
 }
 
-export function filterSessionsByRange(
-  sessions: ExerciseProgressSession[],
+export function filterSessionsByRange<T extends { performedAt: string }>(
+  sessions: T[],
   range: ExerciseProgressRangeKey,
   now = new Date()
 ) {
