@@ -392,6 +392,135 @@ describe("WorkoutApp", () => {
     ).toBeInTheDocument()
   })
 
+  it("opens an exercise quick note dialog and adds a note to the session note", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+      })
+    )
+
+    const dialog = screen.getByRole("dialog")
+    expect(
+      within(dialog).getByText("Nota rápida: Pecho plano con barra")
+    ).toBeInTheDocument()
+    expect(
+      within(dialog).getByRole("button", { name: "Agregar nota" })
+    ).toBeDisabled()
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Costó completar" })
+    )
+    await user.type(
+      within(dialog).getByLabelText("Detalle opcional"),
+      "Última serie salió lenta."
+    )
+    await user.click(
+      within(dialog).getByRole("button", { name: "Agregar nota" })
+    )
+
+    expect(
+      screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
+    ).toHaveValue(
+      "Pecho plano con barra - [Costó completar] - Última serie salió lenta."
+    )
+    expect(screen.getByText("Nota agregada")).toBeInTheDocument()
+  })
+
+  it("closes the exercise quick note dialog without changing the note", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+      })
+    )
+
+    const dialog = screen.getByRole("dialog")
+    await user.click(within(dialog).getByRole("button", { name: "Subir peso" }))
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
+
+    expect(
+      screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
+    ).toHaveValue("")
+  })
+
+  it("groups global quick note chips under the session line", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: "Dormí poco" }))
+    await user.click(screen.getByRole("button", { name: "Fatiga alta" }))
+
+    expect(screen.getByRole("button", { name: "Dormí poco" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+    expect(screen.getByRole("button", { name: "Fatiga alta" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+    expect(
+      screen.getByRole("button", { name: "Poca energía" })
+    ).toHaveAttribute("aria-pressed", "false")
+    expect(
+      screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
+    ).toHaveValue("Sesión - [Dormí poco] [Fatiga alta]")
+    expect(screen.getByText("Nota actualizada")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Dormí poco" }))
+
+    expect(screen.getByRole("button", { name: "Dormí poco" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+    expect(
+      screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
+    ).toHaveValue("Sesión - [Fatiga alta]")
+  })
+
+  it("submits quick notes through the existing session note payload", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Subir peso",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Agregar nota",
+      })
+    )
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    const [, request] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const payload = JSON.parse(String(request.body)) as {
+      note: string
+    }
+
+    expect(payload.note).toBe("Pecho plano con barra - [Subir peso]")
+  })
+
   it("restores a saved draft for the selected routine", async () => {
     const user = userEvent.setup()
     window.localStorage.setItem(
@@ -877,17 +1006,17 @@ describe("WorkoutApp", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("collapses the attendance card content from the header trigger", async () => {
+  it("expands the attendance card content from the header trigger", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
-
-    expect(screen.getByText("Asistencia del mes actual")).toBeInTheDocument()
-
-    await user.click(screen.getByRole("button", { name: /asistencia/i }))
 
     expect(
       screen.queryByText("Asistencia del mes actual")
     ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /asistencia/i }))
+
+    expect(screen.getByText("Asistencia del mes actual")).toBeInTheDocument()
   })
 
   it("scrolls to the routine card when selecting a different routine", async () => {

@@ -34,6 +34,11 @@ import {
   formatSessionDate,
   formatTarget,
 } from "@/lib/workouts/formatting"
+import {
+  appendGlobalSessionContext,
+  appendNoteLine,
+  formatExerciseQuickNote,
+} from "@/lib/workouts/quick-notes"
 import type {
   ExerciseGroupView,
   ExerciseLogType,
@@ -41,6 +46,7 @@ import type {
   RoutineWithStructure,
   WorkoutPageData,
 } from "@/lib/workouts/types"
+import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -73,6 +79,11 @@ import {
   ExerciseTimerBand,
   ExerciseTimerTrigger,
 } from "@/components/workouts/exercise-timer-panel"
+import {
+  ExerciseQuickNoteDialog,
+  ExerciseQuickNoteTrigger,
+  SessionQuickNoteChips,
+} from "@/components/workouts/quick-note-controls"
 
 const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
 
@@ -819,9 +830,7 @@ function AttendanceCard({
                 <CardTitle className="text-lg text-foreground">
                   Asistencia
                 </CardTitle>
-                <CardDescription>
-                  Sesiones registradas del mes
-                </CardDescription>
+                <CardDescription>Sesiones registradas del mes</CardDescription>
               </div>
               <ChevronDown
                 className={cn(
@@ -1239,6 +1248,8 @@ function SessionPanel({
   onNoteChange,
   onValueChange,
   onValueBlur,
+  onStartExerciseQuickNote,
+  onAddSessionQuickNote,
   onStartSwap,
   onUndoSwap,
   onStartAddDayExercise,
@@ -1256,6 +1267,8 @@ function SessionPanel({
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
   onValueBlur: (key: string, value: string) => void
+  onStartExerciseQuickNote: (exerciseName: string) => void
+  onAddSessionQuickNote: (value: string) => void
   onStartSwap: (slotId: string) => void
   onUndoSwap: (slotId: string) => void
   onStartAddDayExercise: (groupId: string) => void
@@ -1752,6 +1765,15 @@ function SessionPanel({
                                                 </div>
                                               </div>
                                               <div className="flex items-center justify-end gap-1.5">
+                                                <ExerciseQuickNoteTrigger
+                                                  exerciseName={exercise.name}
+                                                  onClick={() =>
+                                                    onStartExerciseQuickNote(
+                                                      exercise.name
+                                                    )
+                                                  }
+                                                  setNumber={setNumber}
+                                                />
                                                 {isTimeExercise ? (
                                                   <ExerciseTimerTrigger
                                                     exerciseName={exercise.name}
@@ -1901,8 +1923,12 @@ function SessionPanel({
                 <NotebookPen className="size-3.5" />
                 Nota
               </label>
-              <textarea
-                className="min-h-16 w-full rounded-md border-2 border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-accent focus:bg-accent/10"
+              <SessionQuickNoteChips
+                note={note}
+                onAddNote={onAddSessionQuickNote}
+              />
+              <AutoResizeTextarea
+                className="min-h-32 w-full rounded-md border-2 border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-accent focus:bg-accent/10 sm:min-h-24"
                 maxLength={500}
                 onChange={(event) => onNoteChange(event.target.value)}
                 placeholder="Cómo te sentiste, ajustes..."
@@ -1911,12 +1937,13 @@ function SessionPanel({
             </div>
 
             <Button
-              className="h-12 w-full rounded-md border-2 border-border bg-accent text-accent-foreground font-bold uppercase tracking-wide shadow-brutal hover:bg-accent hover:text-accent-foreground hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-12 w-full rounded-md"
               disabled={!hasWeightedGroups || isPending}
               onClick={() => {
                 void onSubmit()
               }}
               type="button"
+              variant="action"
             >
               {isPending ? "Guardando..." : "Guardar sesión"}
             </Button>
@@ -1968,6 +1995,9 @@ export function WorkoutApp({
   const [dayExercisesByGroupId, setDayExercisesByGroupId] =
     useState<DayExerciseAssignments>({})
   const [dayExerciseTargetGroupId, setDayExerciseTargetGroupId] = useState<
+    string | null
+  >(null)
+  const [quickNoteExerciseName, setQuickNoteExerciseName] = useState<
     string | null
   >(null)
   const draftHydratedRoutineIdRef = useRef<string | null>(null)
@@ -2051,6 +2081,7 @@ export function WorkoutApp({
     setSwapSourceSlotId(null)
     setDayExercisesByGroupId(savedDraft?.dayExercisesByGroupId ?? {})
     setDayExerciseTargetGroupId(null)
+    setQuickNoteExerciseName(null)
     setNote(savedDraft?.note ?? "")
     setStatus({
       type: "idle",
@@ -2276,6 +2307,40 @@ export function WorkoutApp({
     )
   }
 
+  function handleAddExerciseQuickNote(
+    selectedValues: string[],
+    detail: string
+  ) {
+    if (!quickNoteExerciseName) {
+      return
+    }
+
+    const quickNote = formatExerciseQuickNote(
+      quickNoteExerciseName,
+      selectedValues,
+      detail
+    )
+
+    if (quickNote.length === 0) {
+      return
+    }
+
+    setNote((currentNote) => appendNoteLine(currentNote, quickNote))
+    setQuickNoteExerciseName(null)
+    setStatus({
+      type: "success",
+      message: "Nota agregada",
+    })
+  }
+
+  function handleAddSessionQuickNote(value: string) {
+    setNote((currentNote) => appendGlobalSessionContext(currentNote, value))
+    setStatus({
+      type: "success",
+      message: "Nota actualizada",
+    })
+  }
+
   async function handleSubmit() {
     if (!selectedRoutine || !sessionRoutine || isSubmitting) {
       return
@@ -2352,6 +2417,7 @@ export function WorkoutApp({
       setSwapSourceSlotId(null)
       setDayExercisesByGroupId({})
       setDayExerciseTargetGroupId(null)
+      setQuickNoteExerciseName(null)
       setNote("")
       setStatus({
         type: "success",
@@ -2405,6 +2471,16 @@ export function WorkoutApp({
         routineDetails={routineDetails}
         selectedExerciseIds={selectedExerciseIds}
       />
+      <ExerciseQuickNoteDialog
+        exerciseName={quickNoteExerciseName}
+        onAddNote={handleAddExerciseQuickNote}
+        onOpenChange={(open) => {
+          if (!open) {
+            setQuickNoteExerciseName(null)
+          }
+        }}
+        open={quickNoteExerciseName !== null}
+      />
 
       <section className="relative mb-4 overflow-hidden rounded-lg border-2 border-border bg-card px-4 py-4 shadow-brutal md:px-5 md:py-5">
         <div className="space-y-3">
@@ -2454,7 +2530,9 @@ export function WorkoutApp({
               note={note}
               onOpenGroupIdsChange={setOpenGroupIds}
               onNoteChange={setNote}
+              onAddSessionQuickNote={handleAddSessionQuickNote}
               onRemoveDayExercise={handleRemoveDayExercise}
+              onStartExerciseQuickNote={setQuickNoteExerciseName}
               onStartAddDayExercise={handleStartAddDayExercise}
               onStartSwap={handleStartSwap}
               onSubmit={handleSubmit}
