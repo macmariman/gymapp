@@ -772,7 +772,7 @@ function AttendanceCard({
   attendance,
   history,
 }: Pick<WorkoutPageData, "attendance" | "history">) {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const [visibleMonthDate, setVisibleMonthDate] = useState(
     () => new Date(attendance.year, attendance.month - 1, 1)
   )
@@ -820,7 +820,7 @@ function AttendanceCard({
                   Asistencia
                 </CardTitle>
                 <CardDescription>
-                  Los días marcados salen de sesiones reales guardadas.
+                  Sesiones registradas del mes
                 </CardDescription>
               </div>
               <ChevronDown
