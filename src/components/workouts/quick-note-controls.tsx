@@ -182,7 +182,7 @@ export function SessionQuickNoteChips({
               "h-8 rounded-md border-border px-2.5 text-xs",
               isUsed
                 ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                : ""
+                : "hover:bg-background hover:text-foreground"
             )}
             key={option.value}
             onClick={() => onAddNote(option.value)}
