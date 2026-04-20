@@ -29,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ProgressInsights } from "@/components/workouts/progress-insights"
 
 const RANGE_OPTIONS: ExerciseProgressRangeKey[] = ["3m", "6m", "1y", "all"]
 const ALL_ROUTINES_KEY = "all"
@@ -513,6 +514,8 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
           </Link>
         </Button>
       </div>
+
+      <ProgressInsights />
 
       <Card className="rounded-xl">
         <CardHeader className="border-b-2 border-border">
