@@ -1,7 +1,5 @@
 import "server-only"
 
-import { createHash } from "node:crypto"
-
 import { prisma } from "@/lib/prisma"
 import { getProgressOverviewPageData } from "@/lib/workouts/queries"
 import type { ProgressOverviewSession } from "@/lib/workouts/types"
@@ -38,8 +36,15 @@ type SessionSnapshot = {
 
 export type BuildContextResult = {
   context: InsightContext
-  cacheKey: string
   sessionsInWindow: number
+}
+
+export async function getInsightCacheKey(): Promise<string> {
+  const last = await prisma.workoutSession.findFirst({
+    orderBy: { performedAt: "desc" },
+    select: { id: true },
+  })
+  return last?.id ?? "none"
 }
 
 export async function buildInsightContext(
@@ -57,7 +62,6 @@ export async function buildInsightContext(
         select: {
           id: true,
           performedAt: true,
-          updatedAt: true,
           note: true,
           routine: { select: { name: true } },
         },
@@ -157,18 +161,7 @@ export async function buildInsightContext(
     recentNotes,
   }
 
-  const lastSessionId =
-    sessionsInRange[sessionsInRange.length - 1]?.id ?? "none"
-  const lastUpdatedAt = sessionsInRange.reduce(
-    (max, s) => (s.updatedAt > max ? s.updatedAt : max),
-    new Date(0)
-  )
-  const cacheKey = createHash("sha1")
-    .update(`${lastSessionId}:${totalSessions}:${lastUpdatedAt.toISOString()}`)
-    .digest("hex")
-    .slice(0, 16)
-
-  return { context, cacheKey, sessionsInWindow: totalSessions }
+  return { context, sessionsInWindow: totalSessions }
 }
 
 function snapshot(session: ProgressOverviewSession): SessionSnapshot {

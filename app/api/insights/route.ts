@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 
-import { buildInsightContext } from "@/lib/insights/build-context"
+import {
+  buildInsightContext,
+  getInsightCacheKey,
+} from "@/lib/insights/build-context"
 import { generateInsight } from "@/lib/insights/gemini"
 
 const MIN_SESSIONS = 5
@@ -15,7 +18,23 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 503 })
   }
 
-  const { context, cacheKey, sessionsInWindow } = await buildInsightContext()
+  // Cheap check: only the last session ID determines freshness
+  const cacheKey = await getInsightCacheKey()
+  if (request.headers.get("if-none-match") === cacheKey) {
+    return new NextResponse(null, { status: 304 })
+  }
+
+  // Cooldown before doing any expensive work
+  const now = Date.now()
+  if (now - lastGeneratedAt < COOLDOWN_MS) {
+    return NextResponse.json(
+      { status: "cooldown", retryAfterMs: COOLDOWN_MS - (now - lastGeneratedAt) },
+      { status: 429 }
+    )
+  }
+
+  // Full context build (only reached on cache miss + no cooldown)
+  const { context, sessionsInWindow } = await buildInsightContext()
 
   if (sessionsInWindow < MIN_SESSIONS) {
     return NextResponse.json({
@@ -26,24 +45,8 @@ export async function GET(request: Request) {
     })
   }
 
-  const ifNoneMatch = request.headers.get("if-none-match")
-  if (ifNoneMatch && ifNoneMatch === cacheKey) {
-    return new NextResponse(null, { status: 304 })
-  }
-
-  const now = Date.now()
-  if (now - lastGeneratedAt < COOLDOWN_MS) {
-    return NextResponse.json(
-      {
-        status: "cooldown",
-        retryAfterMs: COOLDOWN_MS - (now - lastGeneratedAt),
-      },
-      { status: 429 }
-    )
-  }
-  lastGeneratedAt = now
-
   const insight = await generateInsight(context)
+  lastGeneratedAt = now
 
   return NextResponse.json({
     status: "ok",
