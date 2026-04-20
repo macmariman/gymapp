@@ -7,33 +7,19 @@ import {
 import { generateInsight } from "@/lib/insights/gemini"
 
 const MIN_SESSIONS = 5
-const COOLDOWN_MS = 60_000
 
 export const dynamic = "force-dynamic"
-
-let lastGeneratedAt = 0
 
 export async function GET(request: Request) {
   if (!process.env.GEMINI_API_KEY) {
     return new NextResponse(null, { status: 503 })
   }
 
-  // Cheap check: only the last session ID determines freshness
   const cacheKey = await getInsightCacheKey()
   if (request.headers.get("if-none-match") === cacheKey) {
     return new NextResponse(null, { status: 304 })
   }
 
-  // Cooldown before doing any expensive work
-  const now = Date.now()
-  if (now - lastGeneratedAt < COOLDOWN_MS) {
-    return NextResponse.json(
-      { status: "cooldown", retryAfterMs: COOLDOWN_MS - (now - lastGeneratedAt) },
-      { status: 429 }
-    )
-  }
-
-  // Full context build (only reached on cache miss + no cooldown)
   const { context, sessionsInWindow } = await buildInsightContext()
 
   if (sessionsInWindow < MIN_SESSIONS) {
@@ -45,8 +31,18 @@ export async function GET(request: Request) {
     })
   }
 
-  const insight = await generateInsight(context)
-  lastGeneratedAt = now
+  let insight
+  try {
+    insight = await generateInsight(context)
+  } catch (err) {
+    const isUnavailable =
+      (err instanceof Error && err.name === "AbortError") ||
+      (err instanceof Error && err.message.includes("503"))
+    return NextResponse.json(
+      { status: isUnavailable ? "unavailable" : "error" },
+      { status: 502 }
+    )
+  }
 
   return NextResponse.json({
     status: "ok",

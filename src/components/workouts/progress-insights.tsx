@@ -43,7 +43,7 @@ const STORAGE_KEY = "gymapp:progress-insight"
 export function ProgressInsights() {
   const [stored, setStored] = useState<Stored | null>(null)
   const [phase, setPhase] = useState<
-    "idle" | "loading" | "error" | "insufficient" | "disabled"
+    "idle" | "loading" | "error" | "unavailable" | "insufficient" | "disabled"
   >("loading")
   const [insufficientCount, setInsufficientCount] = useState<number | null>(null)
 
@@ -73,13 +73,14 @@ export function ProgressInsights() {
           return
         }
 
-        if (res.status === 304 || res.status === 429) {
+        if (res.status === 304) {
           setPhase("idle")
           return
         }
 
         if (!res.ok) {
-          setPhase("error")
+          const body = await res.json().catch(() => null)
+          setPhase(body?.status === "unavailable" ? "unavailable" : "error")
           return
         }
 
@@ -141,12 +142,20 @@ export function ProgressInsights() {
 
   return (
     <section className="rounded-lg border-2 border-border bg-muted/40 px-4 py-4">
-      <Header />
+      <div className="flex items-center justify-between">
+        <Header />
+        {isRefreshing && (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Actualizando
+          </span>
+        )}
+      </div>
 
       {isLoading ? (
         <InsightSkeleton />
       ) : stored ? (
-        <div className={cn("mt-3", isRefreshing && "opacity-60")}>
+        <div className="mt-3">
           <h2 className="text-base font-bold leading-snug">
             {stored.insight.headline}
           </h2>
@@ -168,6 +177,10 @@ export function ProgressInsights() {
             </p>
           </div>
         </div>
+      ) : phase === "unavailable" ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Gemini no está disponible en este momento. Intentá de nuevo en unos minutos.
+        </p>
       ) : phase === "error" ? (
         <p className="mt-3 text-sm text-muted-foreground">
           No pudimos generar insights ahora.
