@@ -158,6 +158,34 @@ export function appendGlobalSessionContext(
   return lines.join("\n")
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+export function findLastExerciseNote(
+  note: string,
+  exerciseName: string
+): string | null {
+  const trimmedName = exerciseName.trim()
+
+  if (trimmedName.length === 0 || note.trim().length === 0) {
+    return null
+  }
+
+  const prefixPattern = new RegExp(`^${escapeRegExp(trimmedName)}\\s-\\s`)
+  const lines = note.split("\n")
+
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index].trim()
+
+    if (prefixPattern.test(line)) {
+      return line.replace(prefixPattern, "").trim()
+    }
+  }
+
+  return null
+}
+
 export function getUsedSessionQuickNoteValues(currentNote: string) {
   const sessionLine = currentNote
     .split("\n")

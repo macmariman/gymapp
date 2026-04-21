@@ -20,6 +20,7 @@ export type ExerciseView = {
   durationFormat: ExerciseDurationFormat
   lastLogSummary: string | null
   lastLogValues: string[]
+  previousNote: { text: string; performedAt: string } | null
 }
 
 export type ExerciseGroupView = {

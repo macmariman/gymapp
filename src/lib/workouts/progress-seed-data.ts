@@ -19,7 +19,7 @@ export const workoutProgressSeedScenarios: ProgressSeedScenario[] = [
     sessions: [
       {
         daysAgo: 4,
-        note: "Reference single-session case.",
+        note: "Pecho plano con barra - [Subir peso] [Costó completar] - Hombro tirante en última serie.\n\nSesión - [Dormí poco]",
         values: [35, 37.5, 40],
       },
     ],
@@ -47,7 +47,7 @@ export const workoutProgressSeedScenarios: ProgressSeedScenario[] = [
       },
       {
         daysAgo: 7,
-        note: "Short-history case before trend is available.",
+        note: "Twist sin peso - [Bajar peso] - Lumbar cargada.",
         values: [15, 15, 15],
       },
     ],

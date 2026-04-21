@@ -37,7 +37,7 @@ export const workoutSeedData: SeedRoutine[] = [
         name: "Zona media",
         groups: [
           {
-            name: "Zona media",
+            name: "Twist con disco + Twist sin peso + Plancha ventral",
             series: 3,
             exercises: [
               {
@@ -151,7 +151,7 @@ export const workoutSeedData: SeedRoutine[] = [
         name: "Zona media",
         groups: [
           {
-            name: "Zona media",
+            name: "Bisagra sentado + Bisagra completa + Cortos",
             series: 3,
             exercises: [
               {
@@ -263,7 +263,7 @@ export const workoutSeedData: SeedRoutine[] = [
         name: "Zona media",
         groups: [
           {
-            name: "Zona media",
+            name: "Lumbares + Plancha lateral + Inferiores",
             series: 3,
             exercises: [
               {

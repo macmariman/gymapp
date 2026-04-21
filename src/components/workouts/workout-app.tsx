@@ -1636,6 +1636,31 @@ function SessionPanel({
 
                           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                             <div className="space-y-2 pt-2">
+                              {group.exercises.some(
+                                (exercise) => exercise.previousNote
+                              ) ? (
+                                <div className="space-y-1 border-l-2 border-border pl-2">
+                                  {group.exercises.map((exercise) =>
+                                    exercise.previousNote ? (
+                                      <p
+                                        className="text-xs text-muted-foreground"
+                                        key={`${exercise.id}-previous-note`}
+                                      >
+                                        <span className="font-semibold text-foreground">
+                                          {exercise.name}
+                                        </span>{" "}
+                                        ·{" "}
+                                        <span className="lowercase">
+                                          {formatRelativeSessionDate(
+                                            exercise.previousNote.performedAt
+                                          )}
+                                        </span>
+                                        : {exercise.previousNote.text}
+                                      </p>
+                                    ) : null
+                                  )}
+                                </div>
+                              ) : null}
                               <button
                                 className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
                                 onClick={() => onStartAddDayExercise(group.id)}

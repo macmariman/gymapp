@@ -7,6 +7,7 @@ import {
   formatLogSummary,
   formatValueForInput,
 } from "@/lib/workouts/formatting"
+import { findLastExerciseNote } from "@/lib/workouts/quick-notes"
 import {
   buildSessionSetSummary,
   getAvailableProgressMetrics,
@@ -154,6 +155,104 @@ async function getLatestLogData(
   )
 }
 
+async function getPreviousNotesByMovement(
+  exercises: Array<{ movementId: string; name: string }>
+) {
+  const result = new Map<string, { text: string; performedAt: string }>()
+
+  if (exercises.length === 0) {
+    return result
+  }
+
+  const namesByMovement = new Map<string, Set<string>>()
+
+  for (const exercise of exercises) {
+    const names = namesByMovement.get(exercise.movementId) ?? new Set<string>()
+    names.add(exercise.name)
+    namesByMovement.set(exercise.movementId, names)
+  }
+
+  const movementIds = [...namesByMovement.keys()]
+
+  const sessions = await prisma.workoutSession.findMany({
+    where: {
+      setLogs: {
+        some: {
+          exercise: {
+            movementId: { in: movementIds },
+          },
+        },
+      },
+    },
+    orderBy: { performedAt: "desc" },
+    take: 50,
+    select: {
+      note: true,
+      performedAt: true,
+      setLogs: {
+        select: {
+          exercise: {
+            select: { name: true, movementId: true },
+          },
+        },
+      },
+    },
+  })
+
+  const seenMovements = new Set<string>()
+
+  for (const session of sessions) {
+    const movementsInSession = new Map<string, Set<string>>()
+
+    for (const setLog of session.setLogs) {
+      const { movementId, name } = setLog.exercise
+
+      if (!namesByMovement.has(movementId)) {
+        continue
+      }
+
+      const names = movementsInSession.get(movementId) ?? new Set<string>()
+      names.add(name)
+      movementsInSession.set(movementId, names)
+    }
+
+    for (const [movementId, sessionNames] of movementsInSession) {
+      if (seenMovements.has(movementId)) {
+        continue
+      }
+
+      seenMovements.add(movementId)
+
+      if (!session.note) {
+        continue
+      }
+
+      const candidateNames = new Set<string>([
+        ...(namesByMovement.get(movementId) ?? []),
+        ...sessionNames,
+      ])
+
+      for (const name of candidateNames) {
+        const text = findLastExerciseNote(session.note, name)
+
+        if (text) {
+          result.set(movementId, {
+            text,
+            performedAt: session.performedAt.toISOString(),
+          })
+          break
+        }
+      }
+    }
+
+    if (seenMovements.size === namesByMovement.size) {
+      break
+    }
+  }
+
+  return result
+}
+
 export async function getRoutineSummaries(): Promise<RoutineSummary[]> {
   const routines = await prisma.routine.findMany({
     orderBy: {
@@ -242,7 +341,23 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
     )
   )
 
-  const latestLogs = await getLatestLogData(exercises)
+  const exercisesWithName = routines.flatMap((routine) =>
+    routine.sections.flatMap((section) =>
+      section.groups.flatMap((group) =>
+        group.exercises
+          .filter((exercise) => exercise.logType !== "none")
+          .map((exercise) => ({
+            movementId: exercise.movementId,
+            name: exercise.name,
+          }))
+      )
+    )
+  )
+
+  const [latestLogs, previousNotes] = await Promise.all([
+    getLatestLogData(exercises),
+    getPreviousNotesByMovement(exercisesWithName),
+  ])
 
   return routines.map((routine) => ({
     id: routine.id,
@@ -269,6 +384,7 @@ export async function getRoutineDetails(): Promise<RoutineWithStructure[]> {
             durationFormat: exercise.movement.durationFormat,
             lastLogSummary: latestLogs.get(exercise.id)?.summary ?? null,
             lastLogValues: latestLogs.get(exercise.id)?.values ?? [],
+            previousNote: previousNotes.get(exercise.movementId) ?? null,
           })),
         })
       ),
