@@ -23,6 +23,10 @@ jest.mock("@/lib/prisma", () => ({
   },
 }))
 
+beforeEach(() => {
+  jest.resetAllMocks()
+})
+
 describe("getAttendanceMonth", () => {
   it("returns unique session days for the current month", async () => {
     const mockedFindMany = jest.mocked(prisma.workoutSession.findMany)
@@ -47,8 +51,10 @@ describe("getAttendanceMonth", () => {
 describe("getRoutineDetails", () => {
   it("reuses the latest movement values across exercises that share a movement", async () => {
     const mockedFindMany = jest.mocked(prisma.routine.findMany)
+    const mockedSessionFindMany = jest.mocked(prisma.workoutSession.findMany)
     const mockedSetLogFindMany = jest.mocked(prisma.exerciseSetLog.findMany)
 
+    mockedSessionFindMany.mockResolvedValue([] as never)
     mockedFindMany.mockResolvedValue([
       {
         id: "routine-1",
@@ -395,6 +401,23 @@ describe("getExerciseProgressPageData", () => {
 })
 
 describe("getWorkoutSessionHistory", () => {
+  it("loads only the latest ten sessions by default", async () => {
+    const mockedFindMany = jest.mocked(prisma.workoutSession.findMany)
+
+    mockedFindMany.mockResolvedValue([] as never)
+
+    await getWorkoutSessionHistory()
+
+    expect(mockedFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: {
+          performedAt: "desc",
+        },
+        take: 10,
+      })
+    )
+  })
+
   it("keeps decimal weight values when aggregating exercise summaries", async () => {
     const mockedFindMany = jest.mocked(prisma.workoutSession.findMany)
 

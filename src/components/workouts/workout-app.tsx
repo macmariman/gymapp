@@ -967,97 +967,116 @@ function splitValueSummary(valueSummary: string) {
 }
 
 function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
-  const [openEntryId, setOpenEntryId] = useState<string | null>(
-    history[0]?.id ?? null
-  )
+  const [isOpen, setIsOpen] = useState(false)
+  const [openEntryId, setOpenEntryId] = useState<string | null>(null)
 
   return (
-    <Card>
-      <CardHeader className="border-b-2 border-border">
-        <CardTitle className="text-lg uppercase tracking-wide">
-          Historial
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-0 pt-2">
-        {history.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
-            Todavía no hay sesiones guardadas.
-          </div>
-        ) : (
-          history.map((entry) => (
-            <Collapsible
-              key={entry.id}
-              onOpenChange={(isOpen) =>
-                setOpenEntryId(isOpen ? entry.id : null)
-              }
-              open={openEntryId === entry.id}
+    <Collapsible onOpenChange={setIsOpen} open={isOpen}>
+      <Card>
+        <CardHeader className="border-b-2 border-border">
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-start justify-between gap-4 text-left"
+              type="button"
             >
-              <div className="border-b border-border last:border-b-0">
-                <CollapsibleTrigger asChild>
-                  <button
-                    className="flex w-full items-center justify-between gap-3 py-2 text-left"
-                    type="button"
-                  >
-                    <div>
-                      <div className="text-sm font-semibold text-foreground">
-                        {entry.routineName}
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                        <CalendarDays className="size-3.5" />
-                        {formatSessionDate(entry.performedAt)}
-                      </div>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                        openEntryId === entry.id ? "rotate-180" : "rotate-0"
-                      )}
-                    />
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="overflow-hidden">
-                  <div className="space-y-2 border-t border-dashed border-border py-3">
-                    {entry.note ? (
-                      <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                        {entry.note}
-                      </div>
-                    ) : null}
-                    <div className="space-y-1">
-                      {entry.exercises.length === 0 ? (
-                        <div className="text-sm text-muted-foreground">
-                          Sin registros guardados.
-                        </div>
-                      ) : (
-                        entry.exercises.map((exercise) => {
-                          const { values, unit } = splitValueSummary(
-                            exercise.valueSummary
-                          )
-
-                          return (
-                            <div
-                              key={`${entry.id}-${exercise.exerciseId}`}
-                              className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-1.5"
-                            >
-                              <div className="min-w-0 text-sm text-muted-foreground">
-                                {exercise.exerciseName}
-                              </div>
-                              <div className="grid grid-cols-[auto_1.6rem] items-baseline gap-1 whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
-                                <span className="text-right">{values}</span>
-                                <span className="text-right">{unit}</span>
-                              </div>
-                            </div>
-                          )
-                        })
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleContent>
+              <div className="space-y-1">
+                <CardTitle className="text-lg uppercase tracking-wide">
+                  Historial
+                </CardTitle>
+                <CardDescription>Últimas 10 sesiones</CardDescription>
               </div>
-            </Collapsible>
-          ))
-        )}
-      </CardContent>
-    </Card>
+              <ChevronDown
+                className={cn(
+                  "mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200",
+                  isOpen ? "rotate-0" : "-rotate-90"
+                )}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent className="overflow-hidden">
+          <CardContent className="space-y-0 pt-2">
+            {history.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
+                Todavía no hay sesiones guardadas.
+              </div>
+            ) : (
+              history.map((entry) => (
+                <Collapsible
+                  key={entry.id}
+                  onOpenChange={(isOpen) =>
+                    setOpenEntryId(isOpen ? entry.id : null)
+                  }
+                  open={openEntryId === entry.id}
+                >
+                  <div className="border-b border-border last:border-b-0">
+                    <CollapsibleTrigger asChild>
+                      <button
+                        className="flex w-full items-center justify-between gap-3 py-2 text-left"
+                        type="button"
+                      >
+                        <div>
+                          <div className="text-sm font-semibold text-foreground">
+                            {entry.routineName}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                            <CalendarDays className="size-3.5" />
+                            {formatSessionDate(entry.performedAt)}
+                          </div>
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                            openEntryId === entry.id ? "rotate-180" : "rotate-0"
+                          )}
+                        />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="overflow-hidden">
+                      <div className="space-y-2 border-t border-dashed border-border py-3">
+                        {entry.note ? (
+                          <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                            {entry.note}
+                          </div>
+                        ) : null}
+                        <div className="space-y-1">
+                          {entry.exercises.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">
+                              Sin registros guardados.
+                            </div>
+                          ) : (
+                            entry.exercises.map((exercise) => {
+                              const { values, unit } = splitValueSummary(
+                                exercise.valueSummary
+                              )
+
+                              return (
+                                <div
+                                  key={`${entry.id}-${exercise.exerciseId}`}
+                                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-1.5"
+                                >
+                                  <div className="min-w-0 text-sm text-muted-foreground">
+                                    {exercise.exerciseName}
+                                  </div>
+                                  <div className="grid grid-cols-[auto_1.6rem] items-baseline gap-1 whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
+                                    <span className="text-right">{values}</span>
+                                    <span className="text-right">{unit}</span>
+                                  </div>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              ))
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   )
 }
 

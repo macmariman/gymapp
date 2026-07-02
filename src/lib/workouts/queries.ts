@@ -419,13 +419,14 @@ export async function getAttendanceMonth(
   }
 }
 
-export async function getWorkoutSessionHistory(): Promise<
-  SessionHistoryEntry[]
-> {
+export async function getWorkoutSessionHistory(
+  limit = 10
+): Promise<SessionHistoryEntry[]> {
   const sessions = await prisma.workoutSession.findMany({
     orderBy: {
       performedAt: "desc",
     },
+    take: limit,
     include: {
       routine: {
         select: {

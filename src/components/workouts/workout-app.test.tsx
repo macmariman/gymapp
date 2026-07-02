@@ -1094,6 +1094,48 @@ describe("WorkoutApp", () => {
     expect(screen.getByText("Asistencia del mes actual")).toBeInTheDocument()
   })
 
+  it("keeps history collapsed until the section and session are opened", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <WorkoutApp
+        {...workoutPageData}
+        history={[
+          {
+            id: "session-history-1",
+            routineId: "routine-history",
+            routineName: "Rutina histórica",
+            performedAt: "2026-03-09T10:00:00.000Z",
+            note: "Sesión liviana",
+            exercises: [
+              {
+                exerciseId: "exercise-history-1",
+                exerciseName: "Prensa histórica",
+                valueSummary: "80 · 82,5 kg",
+              },
+            ],
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText("Últimas 10 sesiones")).toBeInTheDocument()
+    expect(screen.queryByText("Rutina histórica")).not.toBeInTheDocument()
+    expect(screen.queryByText("Prensa histórica")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /historial/i }))
+
+    expect(screen.getByText("Rutina histórica")).toBeInTheDocument()
+    expect(screen.queryByText("Prensa histórica")).not.toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole("button", { name: /rutina histórica/i })
+    )
+
+    expect(screen.getByText("Prensa histórica")).toBeInTheDocument()
+    expect(screen.getByText("Sesión liviana")).toBeInTheDocument()
+  })
+
   it("scrolls to the routine card when selecting a different routine", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
