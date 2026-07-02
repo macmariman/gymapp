@@ -304,6 +304,38 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Correr serie 1")).toHaveValue("15:00")
   })
 
+  it("scrolls to the manually opened group after closing the previous group", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /zona media/i }))
+
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "start",
+      })
+    })
+
+    scrollIntoViewMock.mockClear()
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+
+    expect(
+      screen.queryByLabelText("Plancha ventral serie 1")
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText("Pecho plano con barra serie 1")).toHaveValue(
+      "60"
+    )
+
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "start",
+      })
+    })
+  })
+
   it("suggests the next routine not completed in the current week", () => {
     const now = new Date()
     const thisWeekSessionDate = new Date(now)

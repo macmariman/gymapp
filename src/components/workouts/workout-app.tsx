@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -1288,6 +1289,7 @@ function SessionPanel({
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
   const pendingFocusInputKeyRef = useRef<string | null>(null)
   const pendingScrollGroupIdRef = useRef<string | null>(null)
+  const pendingManualScrollGroupIdRef = useRef<string | null>(null)
   const pendingScrollTimeoutRef = useRef<number | null>(null)
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -1415,38 +1417,72 @@ function SessionPanel({
     return map
   }, [flattenedGroups])
 
-  useLayoutEffect(() => {
-    const pendingInputKey = pendingFocusInputKeyRef.current
-    const pendingGroupId = pendingScrollGroupIdRef.current
-
-    if (!pendingInputKey || !pendingGroupId) {
-      return
-    }
-
-    const nextInput = inputRefs.current[pendingInputKey]
-    const nextGroup = groupRefs.current[pendingGroupId]
-
-    if (!nextInput || !nextGroup) {
-      return
-    }
-
-    pendingFocusInputKeyRef.current = null
-    pendingScrollGroupIdRef.current = null
-    nextInput.focus({ preventScroll: true })
-    nextInput.select()
-
+  const scrollToGroupAfterLayout = useCallback((groupElement: HTMLDivElement) => {
     if (pendingScrollTimeoutRef.current !== null) {
       window.clearTimeout(pendingScrollTimeoutRef.current)
     }
 
     pendingScrollTimeoutRef.current = window.setTimeout(() => {
-      nextGroup.scrollIntoView({
+      groupElement.scrollIntoView({
         behavior: "smooth",
         block: "start",
       })
       pendingScrollTimeoutRef.current = null
     }, GROUP_ADVANCE_SCROLL_DELAY_MS)
-  }, [openGroupIds])
+  }, [])
+
+  useLayoutEffect(() => {
+    const pendingInputKey = pendingFocusInputKeyRef.current
+    const pendingGroupId = pendingScrollGroupIdRef.current
+
+    if (pendingInputKey && pendingGroupId) {
+      const nextInput = inputRefs.current[pendingInputKey]
+      const nextGroup = groupRefs.current[pendingGroupId]
+
+      if (!nextInput || !nextGroup) {
+        return
+      }
+
+      pendingFocusInputKeyRef.current = null
+      pendingScrollGroupIdRef.current = null
+      pendingManualScrollGroupIdRef.current = null
+      nextInput.focus({ preventScroll: true })
+      nextInput.select()
+      scrollToGroupAfterLayout(nextGroup)
+      return
+    }
+
+    const pendingManualGroupId = pendingManualScrollGroupIdRef.current
+
+    if (!pendingManualGroupId || !openGroupIds.includes(pendingManualGroupId)) {
+      return
+    }
+
+    const nextGroup = groupRefs.current[pendingManualGroupId]
+
+    if (!nextGroup) {
+      return
+    }
+
+    pendingManualScrollGroupIdRef.current = null
+    scrollToGroupAfterLayout(nextGroup)
+  }, [openGroupIds, scrollToGroupAfterLayout])
+
+  function handleOpenGroupChange(groupId: string, nextOpen: boolean) {
+    if (nextOpen) {
+      pendingManualScrollGroupIdRef.current = groupId
+      onOpenGroupIdsChange([groupId])
+      return
+    }
+
+    if (pendingManualScrollGroupIdRef.current === groupId) {
+      pendingManualScrollGroupIdRef.current = null
+    }
+
+    onOpenGroupIdsChange(
+      openGroupIds.filter((currentGroupId) => currentGroupId !== groupId)
+    )
+  }
 
   function handleAdvanceToNextGroup(currentGroupId: string) {
     const currentGroupIndex = flattenedGroups.findIndex(
@@ -1618,14 +1654,7 @@ function SessionPanel({
                       <Collapsible
                         key={group.id}
                         onOpenChange={(nextOpen) =>
-                          onOpenGroupIdsChange(
-                            nextOpen
-                              ? [group.id]
-                              : openGroupIds.filter(
-                                  (currentGroupId) =>
-                                    currentGroupId !== group.id
-                                )
-                          )
+                          handleOpenGroupChange(group.id, nextOpen)
                         }
                         open={isOpen}
                       >
