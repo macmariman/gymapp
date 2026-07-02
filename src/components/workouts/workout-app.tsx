@@ -148,6 +148,7 @@ const EMPTY_TIMER_STATE: ExerciseTimerState = {
 }
 const WORKOUT_SESSION_DRAFT_KEY_PREFIX = "gym-app.workout-session-draft:"
 const GROUP_ADVANCE_SCROLL_DELAY_MS = 220
+const MANUAL_INPUT_SELECT_DELAY_MS = 0
 
 function FloatingToast({
   status,
@@ -1291,6 +1292,8 @@ function SessionPanel({
   const pendingScrollGroupIdRef = useRef<string | null>(null)
   const pendingManualScrollGroupIdRef = useRef<string | null>(null)
   const pendingScrollTimeoutRef = useRef<number | null>(null)
+  const pendingManualInputSelectTimeoutRef = useRef<number | null>(null)
+  const suppressNextFocusSelectRef = useRef(false)
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -1307,6 +1310,9 @@ function SessionPanel({
     return () => {
       if (pendingScrollTimeoutRef.current !== null) {
         window.clearTimeout(pendingScrollTimeoutRef.current)
+      }
+      if (pendingManualInputSelectTimeoutRef.current !== null) {
+        window.clearTimeout(pendingManualInputSelectTimeoutRef.current)
       }
     }
   }, [])
@@ -1446,6 +1452,7 @@ function SessionPanel({
       pendingFocusInputKeyRef.current = null
       pendingScrollGroupIdRef.current = null
       pendingManualScrollGroupIdRef.current = null
+      suppressNextFocusSelectRef.current = true
       nextInput.focus({ preventScroll: true })
       nextInput.select()
       scrollToGroupAfterLayout(nextGroup)
@@ -1482,6 +1489,28 @@ function SessionPanel({
     onOpenGroupIdsChange(
       openGroupIds.filter((currentGroupId) => currentGroupId !== groupId)
     )
+  }
+
+  function handleWorkoutInputFocus(event: React.FocusEvent<HTMLInputElement>) {
+    if (suppressNextFocusSelectRef.current) {
+      suppressNextFocusSelectRef.current = false
+      return
+    }
+
+    if (pendingManualInputSelectTimeoutRef.current !== null) {
+      window.clearTimeout(pendingManualInputSelectTimeoutRef.current)
+    }
+
+    const input = event.currentTarget
+
+    if (input.value.length === 0) {
+      return
+    }
+
+    pendingManualInputSelectTimeoutRef.current = window.setTimeout(() => {
+      input.select()
+      pendingManualInputSelectTimeoutRef.current = null
+    }, MANUAL_INPUT_SELECT_DELAY_MS)
   }
 
   function handleAdvanceToNextGroup(currentGroupId: string) {
@@ -1884,14 +1913,9 @@ function SessionPanel({
                                                   )}
                                                   data-workout-input
                                                   id={inputId}
-                                                  onFocus={(event) => {
-                                                    if (
-                                                      event.target.value
-                                                        .length > 0
-                                                    ) {
-                                                      event.target.select()
-                                                    }
-                                                  }}
+                                                  onFocus={
+                                                    handleWorkoutInputFocus
+                                                  }
                                                   ref={(element) => {
                                                     inputRefs.current[
                                                       inputKey

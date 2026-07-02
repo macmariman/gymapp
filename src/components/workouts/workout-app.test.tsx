@@ -417,6 +417,28 @@ describe("WorkoutApp", () => {
     focusSpy.mockRestore()
   })
 
+  it("defers selecting input text when focus comes from a manual interaction", () => {
+    jest.useFakeTimers()
+    const selectSpy = jest.spyOn(HTMLInputElement.prototype, "select")
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    fireEvent.click(screen.getByRole("button", { name: /bloque 1/i }))
+
+    const input = screen.getByLabelText("Pecho plano con barra serie 1")
+
+    fireEvent.focus(input)
+
+    expect(selectSpy).not.toHaveBeenCalled()
+
+    act(() => {
+      jest.runOnlyPendingTimers()
+    })
+
+    expect(selectSpy).toHaveBeenCalledTimes(1)
+    selectSpy.mockRestore()
+  })
+
   it("submits a session with weights and shows success feedback", async () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
