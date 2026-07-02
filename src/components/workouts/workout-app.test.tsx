@@ -347,6 +347,8 @@ describe("WorkoutApp", () => {
 
   it("opens the next group and closes the current one when focus advances past the block", async () => {
     const user = userEvent.setup()
+    const focusSpy = jest.spyOn(HTMLInputElement.prototype, "focus")
+
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
@@ -370,6 +372,8 @@ describe("WorkoutApp", () => {
         screen.getByLabelText("Aperturas con mancuernas serie 1")
       ).toHaveFocus()
     })
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    focusSpy.mockRestore()
   })
 
   it("submits a session with weights and shows success feedback", async () => {

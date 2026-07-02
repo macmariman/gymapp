@@ -1417,7 +1417,7 @@ function SessionPanel({
     }
 
     pendingFocusInputKeyRef.current = null
-    nextInput.focus()
+    nextInput.focus({ preventScroll: true })
     nextInput.select()
   }, [openGroupIds])
 
