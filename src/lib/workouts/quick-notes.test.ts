@@ -40,18 +40,18 @@ describe("quick note helpers", () => {
   it("groups global context under one session line", () => {
     const note = appendGlobalSessionContext("", "dormí poco")
 
-    expect(appendGlobalSessionContext(note, "fatiga alta")).toBe(
-      "Sesión - [Dormí poco] [Fatiga alta]"
+    expect(appendGlobalSessionContext(note, "dolor")).toBe(
+      "Sesión - [Dormí poco] [Dolor]"
     )
   })
 
   it("removes a global context value when it is already used", () => {
     expect(
       appendGlobalSessionContext(
-        "Sesión - [Dormí poco] [Fatiga alta]",
+        "Sesión - [Dormí poco] [Dolor]",
         "dormí poco"
       )
-    ).toBe("Sesión - [Fatiga alta]")
+    ).toBe("Sesión - [Dolor]")
   })
 
   it("removes the session line when the last global context value is toggled off", () => {
@@ -87,8 +87,8 @@ describe("quick note helpers", () => {
   it("reads used session quick note values from the session line", () => {
     expect(
       getUsedSessionQuickNoteValues(
-        "Texto manual.\n\nSesión - [Dormí poco] [Fatiga alta]"
+        "Texto manual.\n\nSesión - [Dormí poco] [Dolor]"
       )
-    ).toEqual(new Set(["dormí poco", "fatiga alta"]))
+    ).toEqual(new Set(["dormí poco", "dolor"]))
   })
 })

@@ -528,22 +528,22 @@ describe("WorkoutApp", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: "Dormí poco" }))
-    await user.click(screen.getByRole("button", { name: "Fatiga alta" }))
+    await user.click(screen.getByRole("button", { name: "Dolor" }))
 
     expect(screen.getByRole("button", { name: "Dormí poco" })).toHaveAttribute(
       "aria-pressed",
       "true"
     )
-    expect(screen.getByRole("button", { name: "Fatiga alta" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Dolor" })).toHaveAttribute(
       "aria-pressed",
       "true"
     )
     expect(
-      screen.getByRole("button", { name: "Poca energía" })
+      screen.getByRole("button", { name: "Buen rendimiento" })
     ).toHaveAttribute("aria-pressed", "false")
     expect(
       screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
-    ).toHaveValue("Sesión - [Dormí poco] [Fatiga alta]")
+    ).toHaveValue("Sesión - [Dormí poco] [Dolor]")
     expect(screen.getByText("Nota actualizada")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Dormí poco" }))
@@ -554,7 +554,7 @@ describe("WorkoutApp", () => {
     )
     expect(
       screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
-    ).toHaveValue("Sesión - [Fatiga alta]")
+    ).toHaveValue("Sesión - [Dolor]")
   })
 
   it("submits quick notes through the existing session note payload", async () => {

@@ -14,8 +14,7 @@ export const exerciseQuickNoteOptions = [
 
 export const sessionQuickNoteOptions = [
   { label: "Dormí poco", value: "dormí poco" },
-  { label: "Fatiga alta", value: "fatiga alta" },
-  { label: "Poca energía", value: "poca energía" },
+  { label: "Dolor", value: "dolor" },
   { label: "Buen rendimiento", value: "buen rendimiento" },
   { label: "Entrené apurado", value: "entrené apurado" },
   { label: "Estrés alto", value: "estrés alto" },
