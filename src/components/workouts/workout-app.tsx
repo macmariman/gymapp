@@ -146,6 +146,7 @@ const EMPTY_TIMER_STATE: ExerciseTimerState = {
   elapsedByTimerKey: {},
 }
 const WORKOUT_SESSION_DRAFT_KEY_PREFIX = "gym-app.workout-session-draft:"
+const GROUP_ADVANCE_SCROLL_DELAY_MS = 220
 
 function FloatingToast({
   status,
@@ -1286,6 +1287,9 @@ function SessionPanel({
   const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
   const pendingFocusInputKeyRef = useRef<string | null>(null)
+  const pendingScrollGroupIdRef = useRef<string | null>(null)
+  const pendingScrollTimeoutRef = useRef<number | null>(null)
+  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -1296,6 +1300,14 @@ function SessionPanel({
     setTimerState(EMPTY_TIMER_STATE)
     setTimerNowMs(Date.now())
   }, [routine.id])
+
+  useEffect(() => {
+    return () => {
+      if (pendingScrollTimeoutRef.current !== null) {
+        window.clearTimeout(pendingScrollTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (timerState.runningTimerKey === null) {
@@ -1405,20 +1417,35 @@ function SessionPanel({
 
   useLayoutEffect(() => {
     const pendingInputKey = pendingFocusInputKeyRef.current
+    const pendingGroupId = pendingScrollGroupIdRef.current
 
-    if (!pendingInputKey) {
+    if (!pendingInputKey || !pendingGroupId) {
       return
     }
 
     const nextInput = inputRefs.current[pendingInputKey]
+    const nextGroup = groupRefs.current[pendingGroupId]
 
-    if (!nextInput) {
+    if (!nextInput || !nextGroup) {
       return
     }
 
     pendingFocusInputKeyRef.current = null
+    pendingScrollGroupIdRef.current = null
     nextInput.focus({ preventScroll: true })
     nextInput.select()
+
+    if (pendingScrollTimeoutRef.current !== null) {
+      window.clearTimeout(pendingScrollTimeoutRef.current)
+    }
+
+    pendingScrollTimeoutRef.current = window.setTimeout(() => {
+      nextGroup.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+      pendingScrollTimeoutRef.current = null
+    }, GROUP_ADVANCE_SCROLL_DELAY_MS)
   }, [openGroupIds])
 
   function handleAdvanceToNextGroup(currentGroupId: string) {
@@ -1441,6 +1468,7 @@ function SessionPanel({
     }
 
     pendingFocusInputKeyRef.current = buildWeightInputKey(firstExercise.id, 1)
+    pendingScrollGroupIdRef.current = nextGroup.id
     onOpenGroupIdsChange([nextGroup.id])
   }
 
@@ -1601,7 +1629,12 @@ function SessionPanel({
                         }
                         open={isOpen}
                       >
-                        <div className="border-b border-dashed border-border pb-3 last:border-b-0">
+                        <div
+                          className="scroll-mt-20 border-b border-dashed border-border pb-3 last:border-b-0"
+                          ref={(element) => {
+                            groupRefs.current[group.id] = element
+                          }}
+                        >
                           <CollapsibleTrigger asChild>
                             <button
                               aria-label={

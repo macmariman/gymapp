@@ -373,6 +373,12 @@ describe("WorkoutApp", () => {
       ).toHaveFocus()
     })
     expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "start",
+      })
+    })
     focusSpy.mockRestore()
   })
 
