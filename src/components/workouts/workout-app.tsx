@@ -1620,7 +1620,7 @@ function SessionPanel({
                         onOpenChange={(nextOpen) =>
                           onOpenGroupIdsChange(
                             nextOpen
-                              ? Array.from(new Set([...openGroupIds, group.id]))
+                              ? [group.id]
                               : openGroupIds.filter(
                                   (currentGroupId) =>
                                     currentGroupId !== group.id

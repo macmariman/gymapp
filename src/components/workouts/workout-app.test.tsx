@@ -282,15 +282,6 @@ describe("WorkoutApp", () => {
     expect(
       firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
     ).toHaveValue("")
-
-    await user.click(screen.getByRole("button", { name: /^cardio/i }))
-
-    expect(screen.getByText("15:00")).toBeInTheDocument()
-    expect(screen.getByLabelText("Correr serie 1")).toHaveAttribute(
-      "placeholder",
-      "mm:ss"
-    )
-    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("15:00")
     expect(
       screen.getAllByRole("link", {
         name: "Ver progreso de Pecho plano con barra",
@@ -299,6 +290,18 @@ describe("WorkoutApp", () => {
       "href",
       "/progress/movement-1?routineId=routine-1&slotId=exercise-1"
     )
+
+    await user.click(screen.getByRole("button", { name: /^cardio/i }))
+
+    expect(
+      screen.queryByLabelText("Pecho plano con barra serie 1")
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("15:00")).toBeInTheDocument()
+    expect(screen.getByLabelText("Correr serie 1")).toHaveAttribute(
+      "placeholder",
+      "mm:ss"
+    )
+    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("15:00")
   })
 
   it("suggests the next routine not completed in the current week", () => {
@@ -860,6 +863,8 @@ describe("WorkoutApp", () => {
     expect(
       screen.getByLabelText("Pecho plano con barra serie 4")
     ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
     const swappedRow = screen
       .getByLabelText("Aperturas con mancuernas serie 1")
