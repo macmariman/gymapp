@@ -30,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ProgressInsights } from "@/components/workouts/progress-insights"
+import { ProgressSegmentedControl } from "@/components/workouts/progress-segmented-control"
 
 const RANGE_OPTIONS: ExerciseProgressRangeKey[] = ["3m", "6m", "1y", "all"]
 const ALL_ROUTINES_KEY = "all"
@@ -112,40 +113,6 @@ function getChartY(value: number, minValue: number, maxValue: number) {
     maxValue === minValue ? 0.5 : (value - minValue) / (maxValue - minValue)
 
   return CHART_PADDING.top + innerHeight - normalizedValue * innerHeight
-}
-
-function ProgressSegmentedControl<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: Array<{ value: T; label: string }>
-  onChange: (value: T) => void
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((option) => {
-        const isActive = option.value === value
-
-        return (
-          <button
-            key={option.value}
-            className={cn(
-              "min-h-9 rounded-md border-2 px-3 py-1.5 text-sm font-bold transition",
-              isActive
-                ? "border-border bg-accent text-accent-foreground shadow-brutal"
-                : "border-border bg-card text-muted-foreground hover:bg-muted"
-            )}
-            onClick={() => onChange(option.value)}
-            type="button"
-          >
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 function formatNormalizedDelta(value: number) {
@@ -314,10 +281,10 @@ function ProgressOverviewChart({
 
           return (
             <line
-              className={value === 100 ? "text-border" : "text-border/70"}
+              className={value === 100 ? "text-muted-foreground/40" : "text-border/70"}
               key={`grid-${value}`}
               stroke="currentColor"
-              strokeDasharray="4 4"
+              strokeDasharray={value === 100 ? undefined : "4 4"}
               x1={CHART_PADDING.left}
               x2={CHART_WIDTH - CHART_PADDING.right}
               y1={y}
@@ -501,13 +468,9 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Button
-          asChild
-          className="rounded-md border-2 border-border bg-card shadow-brutal"
-          variant="outline"
-        >
+        <Button asChild className="-ml-2 text-muted-foreground" variant="ghost">
           <Link href="/">
             <ChevronLeft />
             Volver
@@ -515,116 +478,105 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
         </Button>
       </div>
 
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Progreso
+        </h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Compará cambios porcentuales por período.
+        </p>
+      </div>
+
       <ProgressInsights />
 
-      <Card className="rounded-xl">
-        <CardHeader className="border-b-2 border-border">
-          <CardTitle className="text-xl">Progreso</CardTitle>
-          <CardDescription>
-            Compará cambios porcentuales por período.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 pt-4">
-          <div className="flex flex-col gap-2">
-            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Rutina
-            </div>
-            <ProgressSegmentedControl
-              onChange={selectRoutine}
-              options={[
-                {
-                  value: ALL_ROUTINES_KEY,
-                  label: "Todas",
-                },
-                ...routineOptions.map((routine) => ({
-                  value: routine.id,
-                  label: routine.name,
-                })),
-              ]}
-              value={selectedRoutineId}
-            />
+      <section className="flex flex-col gap-4">
+        <ProgressSegmentedControl
+          label="Rutina"
+          onChange={selectRoutine}
+          options={[
+            {
+              value: ALL_ROUTINES_KEY,
+              label: "Todas",
+            },
+            ...routineOptions.map((routine) => ({
+              value: routine.id,
+              label: routine.name,
+            })),
+          ]}
+          value={selectedRoutineId}
+        />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <ProgressSegmentedControl
+            label="Rango"
+            onChange={setSelectedRange}
+            options={RANGE_OPTIONS.map((range) => ({
+              value: range,
+              label: getRangeLabel(range),
+            }))}
+            value={selectedRange}
+          />
+          <ProgressSegmentedControl
+            label="Métrica"
+            onChange={setSelectedMetricMode}
+            options={METRIC_OPTIONS}
+            value={selectedMetricMode}
+          />
+        </div>
+
+        {selectedMetricMode === "volume" ? (
+          <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+            En ejercicios con peso, el volumen se estima con las repeticiones
+            objetivo configuradas.
           </div>
+        ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Rango
-              </div>
-              <ProgressSegmentedControl
-                onChange={setSelectedRange}
-                options={RANGE_OPTIONS.map((range) => ({
-                  value: range,
-                  label: getRangeLabel(range),
-                }))}
-                value={selectedRange}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Métrica
-              </div>
-              <ProgressSegmentedControl
-                onChange={setSelectedMetricMode}
-                options={METRIC_OPTIONS}
-                value={selectedMetricMode}
-              />
-            </div>
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Ejercicios
           </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="min-h-[38px] rounded-[10px] border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+              onClick={selectAllMovements}
+              type="button"
+            >
+              Todos
+            </button>
+            <button
+              className="min-h-[38px] rounded-[10px] border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+              onClick={clearMovements}
+              type="button"
+            >
+              Ninguno
+            </button>
+            {scopedMovements.map((movement) => {
+              const isActive = activeMovementIdSet.has(movement.id)
 
-          {selectedMetricMode === "volume" ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-              En ejercicios con peso, el volumen se estima con las repeticiones
-              objetivo configuradas.
-            </div>
-          ) : null}
-
-          <div className="flex flex-col gap-2">
-            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Ejercicios
-            </div>
-            <div className="flex flex-wrap gap-2 rounded-lg border-2 border-border bg-card p-2 md:max-h-44 md:overflow-auto">
-              <button
-                className="rounded-md border-2 border-border bg-card px-2.5 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
-                onClick={selectAllMovements}
-                type="button"
-              >
-                Todos
-              </button>
-              <button
-                className="rounded-md border-2 border-border bg-card px-2.5 py-1.5 text-sm font-bold text-foreground transition hover:bg-muted"
-                onClick={clearMovements}
-                type="button"
-              >
-                Ninguno
-              </button>
-              {scopedMovements.map((movement) => {
-                const isActive = activeMovementIdSet.has(movement.id)
-
-                return (
-                  <button
-                    className={cn(
-                      "rounded-md border-2 px-2.5 py-1.5 text-sm font-bold transition",
-                      isActive
-                        ? "border-border bg-accent text-accent-foreground shadow-brutal-sm"
-                        : "border-border bg-muted text-muted-foreground hover:bg-card"
-                    )}
-                    key={movement.id}
-                    onClick={() => toggleMovement(movement.id)}
-                    type="button"
-                  >
-                    {movement.name}
-                  </button>
-                )
-              })}
-            </div>
+              return (
+                <button
+                  className={cn(
+                    "min-h-[38px] rounded-[10px] px-3 py-1.5 text-sm font-semibold transition",
+                    isActive
+                      ? "bg-accent font-bold text-accent-foreground"
+                      : "border border-border bg-card text-muted-foreground opacity-55 hover:bg-muted"
+                  )}
+                  key={movement.id}
+                  onClick={() => toggleMovement(movement.id)}
+                  type="button"
+                >
+                  {movement.name}
+                </button>
+              )
+            })}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {movements.length === 0 ? (
         <Card className="rounded-xl">
           <CardContent className="pt-4">
-            <div className="rounded-lg border-2 border-dashed border-border bg-muted/50 px-4 py-6 text-center">
+            <div className="rounded-2xl border border-dashed border-border bg-muted/50 px-4 py-6 text-center">
               <BarChart3 className="mx-auto mb-2 text-muted-foreground" />
               <div className="text-sm font-bold text-foreground">
                 Todavía no hay ejercicios con registros.
@@ -638,7 +590,7 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
       ) : (
         <>
           <Card className="rounded-xl">
-            <CardHeader className="border-b-2 border-border">
+            <CardHeader className="border-b border-border">
               <CardTitle className="text-lg">Variación de progreso</CardTitle>
               <CardDescription>
                 Cambio contra el primer registro visible.
@@ -652,7 +604,7 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
               />
 
               {activePoint ? (
-                <div className="rounded-lg border-2 border-border bg-muted/40 px-3 py-3">
+                <div className="rounded-[13px] bg-accent-soft px-3 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-bold text-foreground">
@@ -683,7 +635,7 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
           </Card>
 
           <Card className="rounded-xl">
-            <CardHeader className="border-b-2 border-border">
+            <CardHeader className="border-b border-border">
               <CardTitle className="text-lg">Leyenda / resumen</CardTitle>
               <CardDescription>
                 Tocá un ejercicio para resaltar su línea.
@@ -712,9 +664,9 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
                   return (
                     <button
                       className={cn(
-                        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border-2 border-border bg-card px-3 py-2 text-left transition hover:bg-muted/50",
+                        "grid w-full min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left transition hover:bg-muted/50",
                         isHighlighted
-                          ? "bg-muted shadow-brutal-sm"
+                          ? "border-accent/40 bg-accent-soft"
                           : highlightedMovementId
                             ? "opacity-45"
                             : "opacity-100"
@@ -729,7 +681,7 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <span
-                          className="inline-block size-3 shrink-0 rounded-full border border-border"
+                          className="inline-block size-[11px] shrink-0 rounded-full"
                           style={{ backgroundColor: item.color }}
                         />
                         <span className="min-w-0">
@@ -744,10 +696,10 @@ export function ProgressOverviewPage({ movements }: ProgressOverviewPageData) {
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-bold text-foreground">
+                        <div className="text-sm font-bold text-accent-soft-foreground">
                           {formatProgressChangePercent(item.percentChange)}
                         </div>
-                        <div className="text-sm font-bold text-foreground">
+                        <div className="text-sm font-bold tabular-nums text-foreground">
                           {formatProgressOverviewMetricValue(
                             item.movement,
                             selectedMetricMode,
