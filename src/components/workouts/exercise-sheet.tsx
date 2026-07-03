@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ArrowRightLeft,
   ChevronRight,
@@ -76,6 +77,8 @@ export function ExerciseSheet({
   onResetTimer,
   onApplyTimer,
 }: ExerciseSheetProps) {
+  const router = useRouter()
+
   if (!exercise) {
     return null
   }
@@ -217,7 +220,11 @@ export function ExerciseSheet({
           <Link
             className="flex min-h-[53px] w-full items-center gap-3 rounded-xl px-1 text-left text-sm font-semibold text-foreground transition hover:bg-muted/60"
             href={progressHref}
-            onClick={() => onOpenChange(false)}
+            onClick={(event) => {
+              event.preventDefault()
+              onOpenChange(false)
+              router.push(progressHref)
+            }}
           >
             <TrendingUp className="size-4 shrink-0 text-muted-foreground" />
             Ver progreso / historial
