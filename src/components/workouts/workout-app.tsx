@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowRightLeft,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -103,6 +104,7 @@ type WorkoutSessionDraft = {
   values: Record<string, string>
   slotAssignments: SlotAssignments
   dayExercisesByGroupId: DayExerciseAssignments
+  confirmedKeys?: string[]
 }
 
 type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
@@ -148,6 +150,7 @@ const EMPTY_TIMER_STATE: ExerciseTimerState = {
   elapsedByTimerKey: {},
 }
 const WORKOUT_SESSION_DRAFT_KEY_PREFIX = "gym-app.workout-session-draft:"
+const SESSION_NOTE_TEXTAREA_ID = "session-note-textarea"
 const GROUP_ADVANCE_SCROLL_DELAY_MS = 220
 const MANUAL_INPUT_SELECT_DELAY_MS = 0
 
@@ -195,6 +198,43 @@ function splitRoutineTitle(name: string) {
   }
 
   return { kicker: "Hoy", title: name }
+}
+
+function getSeriesProgress(
+  routine: SessionRoutineWithStructure | undefined,
+  confirmedKeys: string[]
+) {
+  const confirmedSet = new Set(confirmedKeys)
+  const perGroup: Record<string, { done: number; total: number }> = {}
+  let confirmedSeries = 0
+  let totalSeries = 0
+
+  for (const section of routine?.sections ?? []) {
+    for (const group of section.groups) {
+      if (group.exercises.length === 0) {
+        continue
+      }
+
+      const groupProgress = { done: 0, total: group.series }
+
+      for (let setNumber = 1; setNumber <= group.series; setNumber += 1) {
+        totalSeries += 1
+
+        const isSetConfirmed = group.exercises.every((exercise) =>
+          confirmedSet.has(buildWeightInputKey(exercise.id, setNumber))
+        )
+
+        if (isSetConfirmed) {
+          confirmedSeries += 1
+          groupProgress.done += 1
+        }
+      }
+
+      perGroup[group.id] = groupProgress
+    }
+  }
+
+  return { confirmedSeries, totalSeries, perGroup }
 }
 
 function countRoutineBlocksAndSeries(routine: RoutineWithStructure | undefined) {
@@ -515,6 +555,11 @@ function readWorkoutSessionDraft(
       values: parsedDraft.values,
       slotAssignments: parsedDraft.slotAssignments,
       dayExercisesByGroupId: parsedDraft.dayExercisesByGroupId,
+      confirmedKeys: Array.isArray(parsedDraft.confirmedKeys)
+        ? parsedDraft.confirmedKeys.filter(
+            (key): key is string => typeof key === "string"
+          )
+        : [],
     }
   } catch {
     return null
@@ -618,6 +663,7 @@ function hasWorkoutSessionDraftChanges({
   values,
   slotAssignments,
   dayExercisesByGroupId,
+  confirmedKeys,
   initialValues,
   initialSlotAssignments,
 }: {
@@ -625,11 +671,13 @@ function hasWorkoutSessionDraftChanges({
   values: Record<string, string>
   slotAssignments: SlotAssignments
   dayExercisesByGroupId: DayExerciseAssignments
+  confirmedKeys: string[]
   initialValues: Record<string, string>
   initialSlotAssignments: SlotAssignments
 }) {
   return (
     note.trim().length > 0 ||
+    confirmedKeys.length > 0 ||
     !areStringRecordsEqual(values, initialValues) ||
     !areStringRecordsEqual(slotAssignments, initialSlotAssignments) ||
     !areDayExerciseAssignmentsEqual(dayExercisesByGroupId, {})
@@ -1326,6 +1374,9 @@ function SessionPanel({
   onRemoveDayExercise,
   onSubmit,
   panelRef,
+  confirmedKeys,
+  onConfirmValue,
+  onUnconfirmValue,
 }: {
   routine: SessionRoutineWithStructure
   selectedRoutineId: string
@@ -1333,6 +1384,9 @@ function SessionPanel({
   note: string
   isPending: boolean
   values: Record<string, string>
+  confirmedKeys: string[]
+  onConfirmValue: (key: string) => void
+  onUnconfirmValue: (key: string) => void
   onOpenGroupIdsChange: (groupIds: string[]) => void
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
@@ -1477,7 +1531,7 @@ function SessionPanel({
   const groupBoundaryInputs = React.useMemo(() => {
     const map = new Map<string, string>()
 
-    for (let i = 0; i < flattenedGroups.length - 1; i++) {
+    for (let i = 0; i < flattenedGroups.length; i++) {
       const group = flattenedGroups[i]
       const lastSetNumber = group.series
       const lastExercise = group.exercises[group.exercises.length - 1]
@@ -1585,10 +1639,19 @@ function SessionPanel({
       (group) => group.id === currentGroupId
     )
 
-    if (
-      currentGroupIndex === -1 ||
-      currentGroupIndex === flattenedGroups.length - 1
-    ) {
+    if (currentGroupIndex === -1) {
+      return
+    }
+
+    if (currentGroupIndex === flattenedGroups.length - 1) {
+      onOpenGroupIdsChange([])
+      window.requestAnimationFrame(() => {
+        const noteTextarea = document.getElementById(SESSION_NOTE_TEXTAREA_ID)
+
+        if (noteTextarea instanceof HTMLTextAreaElement) {
+          noteTextarea.focus()
+        }
+      })
       return
     }
 
@@ -1706,10 +1769,21 @@ function SessionPanel({
       inputKey,
       formatDurationInputValue(elapsedSeconds, exercise.durationFormat)
     )
+
+    if (elapsedSeconds > 0) {
+      onConfirmValue(inputKey)
+    }
   }
 
-  const routineTotals = countRoutineBlocksAndSeries(routine)
-  const savedBarProgressLabel = `0/${routineTotals.series}`
+  const confirmedSet = React.useMemo(
+    () => new Set(confirmedKeys),
+    [confirmedKeys]
+  )
+  const seriesProgress = React.useMemo(
+    () => getSeriesProgress(routine, confirmedKeys),
+    [routine, confirmedKeys]
+  )
+  const savedBarProgressLabel = `${seriesProgress.confirmedSeries}/${seriesProgress.totalSeries}`
 
   return (
     <div ref={panelRef} className="scroll-mt-20 space-y-3">
@@ -1733,6 +1807,20 @@ function SessionPanel({
                   </div>
                   {sectionGroups.map((group) => {
                     const isOpen = openGroupIds.includes(group.id)
+                    const groupProgress = seriesProgress.perGroup[group.id]
+                    const setConfirmations = Array.from(
+                      { length: group.series },
+                      (_, index) =>
+                        group.exercises.every((exercise) =>
+                          confirmedSet.has(
+                            buildWeightInputKey(exercise.id, index + 1)
+                          )
+                        )
+                    )
+                    const currentSetNumber =
+                      setConfirmations.findIndex(
+                        (isConfirmed) => !isConfirmed
+                      ) + 1
 
                     return (
                       <Collapsible
@@ -1778,6 +1866,18 @@ function SessionPanel({
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
+                                {groupProgress ? (
+                                  <span
+                                    className={cn(
+                                      "font-mono text-xs font-bold tabular-nums",
+                                      groupProgress.done > 0
+                                        ? "text-accent-soft-foreground"
+                                        : "text-muted-foreground"
+                                    )}
+                                  >
+                                    {groupProgress.done}/{groupProgress.total}
+                                  </span>
+                                ) : null}
                                 <ChevronDown
                                   aria-hidden="true"
                                   className={cn(
@@ -1828,15 +1928,41 @@ function SessionPanel({
                                 { length: group.series },
                                 (_, index) => {
                                   const setNumber = index + 1
+                                  const isSetConfirmed =
+                                    setConfirmations[index] ?? false
+                                  const isCurrentSet =
+                                    setNumber === currentSetNumber
 
                                   return (
                                     <div
                                       key={`${group.id}-set-${setNumber}`}
-                                      className="rounded-2xl px-3 pb-1 pt-2.5"
+                                      className={cn(
+                                        "rounded-2xl px-3 pb-1 pt-2.5",
+                                        isSetConfirmed && "opacity-60",
+                                        isCurrentSet && "bg-accent-soft"
+                                      )}
                                       data-set-container
                                     >
-                                      <div className="inline-flex items-center rounded-full border border-border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                        Serie {setNumber}
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest",
+                                            isCurrentSet
+                                              ? "bg-accent text-accent-foreground"
+                                              : "border border-border text-muted-foreground"
+                                          )}
+                                        >
+                                          Serie {setNumber}
+                                        </span>
+                                        {isSetConfirmed ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            Completada
+                                          </span>
+                                        ) : isCurrentSet ? (
+                                          <span className="text-xs font-semibold text-accent-soft-foreground">
+                                            En curso
+                                          </span>
+                                        ) : null}
                                       </div>
 
                                       <div>
@@ -1862,6 +1988,10 @@ function SessionPanel({
                                             )
                                           const targetLabel =
                                             formatTarget(exercise)
+                                          const isFieldConfirmed =
+                                            confirmedSet.has(inputKey)
+                                          const hasFieldValue =
+                                            (values[inputKey] ?? "").length > 0
 
                                           return (
                                             <div
@@ -1970,7 +2100,11 @@ function SessionPanel({
                                                 <input
                                                   aria-label={`${exercise.name} serie ${setNumber}`}
                                                   className={cn(
-                                                    "h-[46px] rounded-xl border border-border bg-card px-2 text-center text-lg font-bold tabular-nums text-foreground outline-none transition-shadow focus:border-accent focus:ring-[3px] focus:ring-accent/20",
+                                                    "h-[46px] rounded-xl border bg-card px-2 text-center text-lg font-bold tabular-nums outline-none transition-shadow focus:border-solid focus:border-accent focus:text-foreground focus:ring-[3px] focus:ring-accent/20",
+                                                    hasFieldValue &&
+                                                      !isFieldConfirmed
+                                                      ? "border-dashed border-border text-muted-foreground/70"
+                                                      : "border-border text-foreground",
                                                     exercise.durationFormat ===
                                                       "mmss"
                                                       ? "w-[84px] placeholder:text-sm placeholder:font-semibold"
@@ -1997,13 +2131,30 @@ function SessionPanel({
                                                     )
                                                   }
                                                   onBlur={(event) => {
-                                                    onValueBlur(
-                                                      inputKey,
+                                                    const normalizedValue =
                                                       normalizeExerciseInputValueOnBlur(
                                                         exercise,
                                                         event.target.value
                                                       )
+
+                                                    onValueBlur(
+                                                      inputKey,
+                                                      normalizedValue
                                                     )
+
+                                                    const movedToField =
+                                                      event.relatedTarget instanceof
+                                                        HTMLInputElement ||
+                                                      event.relatedTarget instanceof
+                                                        HTMLTextAreaElement
+
+                                                    if (
+                                                      normalizedValue.length === 0
+                                                    ) {
+                                                      onUnconfirmValue(inputKey)
+                                                    } else if (movedToField) {
+                                                      onConfirmValue(inputKey)
+                                                    }
 
                                                     const boundaryGroupId =
                                                       groupBoundaryInputs.get(
@@ -2047,6 +2198,14 @@ function SessionPanel({
                                                   )}
                                                   value={values[inputKey] ?? ""}
                                                 />
+                                                <span
+                                                  aria-hidden="true"
+                                                  className="flex w-4 shrink-0 items-center justify-center"
+                                                >
+                                                  {isFieldConfirmed ? (
+                                                    <Check className="size-4 text-accent" />
+                                                  ) : null}
+                                                </span>
                                               </div>
                                               {isTimeExercise && isTimerOpen ? (
                                                 <div className="col-span-2 pt-1">
@@ -2106,6 +2265,7 @@ function SessionPanel({
               />
               <AutoResizeTextarea
                 className="min-h-32 w-full rounded-[13px] border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-24"
+                id={SESSION_NOTE_TEXTAREA_ID}
                 maxLength={500}
                 onChange={(event) => onNoteChange(event.target.value)}
                 placeholder="Cómo te sentiste, ajustes..."
@@ -2178,6 +2338,7 @@ export function WorkoutApp({
   const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
   const [note, setNote] = useState("")
   const [values, setValues] = useState<Record<string, string>>({})
+  const [confirmedKeys, setConfirmedKeys] = useState<string[]>([])
   const [slotAssignments, setSlotAssignments] = useState<SlotAssignments>({})
   const [swapSourceSlotId, setSwapSourceSlotId] = useState<string | null>(null)
   const [dayExercisesByGroupId, setDayExercisesByGroupId] =
@@ -2244,7 +2405,22 @@ export function WorkoutApp({
     () => countRoutineBlocksAndSeries(sessionRoutine),
     [sessionRoutine]
   )
-  const confirmedSeriesCount = 0
+  const confirmedSeriesCount = React.useMemo(
+    () => getSeriesProgress(sessionRoutine, confirmedKeys).confirmedSeries,
+    [sessionRoutine, confirmedKeys]
+  )
+  const handleConfirmValue = useCallback((key: string) => {
+    setConfirmedKeys((currentKeys) =>
+      currentKeys.includes(key) ? currentKeys : [...currentKeys, key]
+    )
+  }, [])
+  const handleUnconfirmValue = useCallback((key: string) => {
+    setConfirmedKeys((currentKeys) =>
+      currentKeys.includes(key)
+        ? currentKeys.filter((currentKey) => currentKey !== key)
+        : currentKeys
+    )
+  }, [])
   const selectedExerciseIds = React.useMemo(
     () =>
       new Set(
@@ -2268,7 +2444,14 @@ export function WorkoutApp({
       ? readWorkoutSessionDraft(selectedRoutine.id)
       : null
 
-    setValues(savedDraft?.values ?? selectedRoutineInitialValues)
+    const hydratedValues = savedDraft?.values ?? selectedRoutineInitialValues
+
+    setValues(hydratedValues)
+    setConfirmedKeys(
+      (savedDraft?.confirmedKeys ?? []).filter(
+        (key) => (hydratedValues[key] ?? "").length > 0
+      )
+    )
     setSlotAssignments(
       savedDraft?.slotAssignments ?? selectedRoutineInitialSlotAssignments
     )
@@ -2309,6 +2492,7 @@ export function WorkoutApp({
       values: draftValues,
       slotAssignments,
       dayExercisesByGroupId,
+      confirmedKeys,
       initialValues: selectedRoutineInitialValues,
       initialSlotAssignments: selectedRoutineInitialSlotAssignments,
     })
@@ -2325,8 +2509,10 @@ export function WorkoutApp({
       values: draftValues,
       slotAssignments,
       dayExercisesByGroupId,
+      confirmedKeys,
     })
   }, [
+    confirmedKeys,
     dayExercisesByGroupId,
     note,
     selectedRoutine,
@@ -2607,6 +2793,7 @@ export function WorkoutApp({
       clearWorkoutSessionDrafts()
       skipNextDraftWriteRef.current = true
       setValues({})
+      setConfirmedKeys([])
       setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
       setSwapSourceSlotId(null)
       setDayExercisesByGroupId({})
@@ -2747,6 +2934,9 @@ export function WorkoutApp({
               routine={sessionRoutine}
               selectedRoutineId={selectedRoutineId}
               values={values}
+              confirmedKeys={confirmedKeys}
+              onConfirmValue={handleConfirmValue}
+              onUnconfirmValue={handleUnconfirmValue}
             />
           ) : null}
         </div>

@@ -624,6 +624,113 @@ describe("WorkoutApp", () => {
     ).toHaveValue("Draft note")
   })
 
+  it("does not count prefilled values as confirmed series", () => {
+    render(<WorkoutApp {...workoutPageData} />)
+
+    expect(
+      screen.getByText("0 de 9 series confirmadas")
+    ).toBeInTheDocument()
+    expect(screen.getByText("0/9")).toBeInTheDocument()
+  })
+
+  it("confirms fields when focus advances and counts complete series", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+
+    const firstInput = screen.getByLabelText("Pecho plano con barra serie 1")
+    const secondInput = screen.getByLabelText("Fondo tríceps en banco serie 1")
+
+    act(() => {
+      firstInput.focus()
+    })
+    fireEvent.blur(firstInput, { relatedTarget: secondInput })
+
+    expect(
+      screen.getByText("0 de 9 series confirmadas")
+    ).toBeInTheDocument()
+
+    await user.type(secondInput, "12")
+
+    act(() => {
+      secondInput.focus()
+    })
+    fireEvent.blur(secondInput, {
+      relatedTarget: screen.getByLabelText("Pecho plano con barra serie 2"),
+    })
+
+    expect(
+      screen.getByText("1 de 9 series confirmadas")
+    ).toBeInTheDocument()
+    expect(screen.getByText("1/9")).toBeInTheDocument()
+  })
+
+  it("restores confirmed keys from the draft and ignores stale ones", async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(
+      `${workoutDraftKeyPrefix}routine-1`,
+      JSON.stringify({
+        version: 1,
+        routineId: "routine-1",
+        note: "",
+        values: {
+          "exercise-0:1": "30",
+          "exercise-1:1": "66",
+          "exercise-2:1": "12",
+        },
+        slotAssignments: {},
+        dayExercisesByGroupId: {},
+        confirmedKeys: [
+          "exercise-0:1",
+          "exercise-1:1",
+          "exercise-2:1",
+          "exercise-missing:1",
+        ],
+      })
+    )
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("2 de 9 series confirmadas")
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    expect(
+      screen.getByLabelText("Pecho plano con barra serie 1")
+    ).toHaveValue("66")
+  })
+
+  it("loads drafts saved before confirmed tracking without confirmations", async () => {
+    window.localStorage.setItem(
+      `${workoutDraftKeyPrefix}routine-1`,
+      JSON.stringify({
+        version: 1,
+        routineId: "routine-1",
+        note: "Old draft",
+        values: {
+          "exercise-1:1": "66",
+        },
+        slotAssignments: {},
+        dayExercisesByGroupId: {},
+      })
+    )
+
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
+      ).toHaveValue("Old draft")
+    })
+    expect(
+      screen.getByText("0 de 9 series confirmadas")
+    ).toBeInTheDocument()
+  })
+
   it("keeps drafts separated by routine", async () => {
     const user = userEvent.setup()
     window.localStorage.setItem(
