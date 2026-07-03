@@ -35,7 +35,7 @@ export function ExerciseTimerTrigger({
       className={cn(
         "inline-flex size-6 shrink-0 items-center justify-center rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         isOpen
-          ? "border-accent/60 bg-accent/10 text-accent-foreground hover:bg-accent/15"
+          ? "border-accent/60 bg-accent-soft text-accent-soft-foreground hover:bg-accent-soft/80"
           : "border-border bg-muted/50 text-foreground hover:bg-muted"
       )}
       onClick={onToggleOpen}

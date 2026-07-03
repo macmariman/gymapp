@@ -1,8 +1,21 @@
 import type { Metadata, Viewport } from 'next';
+import { Space_Grotesk, Space_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { Header } from '@/components/layout/Header';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-space-grotesk'
+});
+
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-space-mono'
+});
 
 export const metadata: Metadata = {
   title: {
@@ -31,8 +44,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f7f8f5' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f172a' }
+    { media: '(prefers-color-scheme: light)', color: '#fbfbf9' },
+    { media: '(prefers-color-scheme: dark)', color: '#16181f' }
   ]
 };
 
@@ -42,8 +55,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body>
+    <html lang="es" suppressHydrationWarning className={`${spaceGrotesk.variable} ${spaceMono.variable}`}>
+      <body className="font-sans">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -51,9 +64,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ErrorBoundary>
-            <div className="min-h-screen bg-[linear-gradient(180deg,#f7f8f5_0%,#eef2ec_35%,#e5ece6_100%)] dark:bg-[linear-gradient(180deg,#0f172a_0%,#111827_45%,#172033_100%)]">
+            <div className="min-h-screen bg-background">
               <Header />
-              <main className="mx-auto w-full px-2 py-4 md:px-6 md:py-6">
+              <main className="mx-auto w-full max-w-xl px-4 py-4 pb-28">
                 {children}
               </main>
             </div>
