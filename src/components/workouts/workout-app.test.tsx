@@ -265,7 +265,7 @@ describe("WorkoutApp", () => {
 
     const firstSeriesContainer = screen
       .getByLabelText("Pecho plano con barra serie 1")
-      .closest("div.space-y-1")
+      .closest("div[data-set-container]")
 
     expect(firstSeriesContainer).not.toBeNull()
 

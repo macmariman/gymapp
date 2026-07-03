@@ -187,6 +187,34 @@ function buildWeightInputKey(exerciseId: string, setNumber: number) {
   return `${exerciseId}:${setNumber}`
 }
 
+function splitRoutineTitle(name: string) {
+  const match = name.match(/^(Día\s*\d+)\s*[·\-:]\s*(.+)$/i)
+
+  if (match) {
+    return { kicker: `Hoy · ${match[1]}`, title: match[2] }
+  }
+
+  return { kicker: "Hoy", title: name }
+}
+
+function countRoutineBlocksAndSeries(routine: RoutineWithStructure | undefined) {
+  let blocks = 0
+  let series = 0
+
+  for (const section of routine?.sections ?? []) {
+    for (const group of section.groups) {
+      if (group.exercises.length === 0) {
+        continue
+      }
+
+      blocks += 1
+      series += group.series
+    }
+  }
+
+  return { blocks, series }
+}
+
 function buildInitialSlotAssignments(
   routine: RoutineWithStructure | undefined
 ) {
@@ -762,38 +790,43 @@ function RoutineList({
   onSelect: (routineId: string) => void
 }) {
   return (
-    <Card>
-      <CardHeader className="border-b-2 border-border">
-        <CardTitle className="text-lg uppercase tracking-wide">
-          Rutinas
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 pt-3">
+    <section className="space-y-2">
+      <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+        Rutinas
+      </div>
+      <div className="space-y-2">
         {routines.map((routine) => (
           <button
             key={routine.id}
             className={cn(
-              "flex w-full items-center justify-between rounded-md border-2 px-3 py-2 text-left transition",
+              "flex min-h-[52px] w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition",
               routine.id === selectedRoutineId
-                ? "border-accent bg-accent/10 shadow-brutal-sm"
-                : "border-border bg-card hover:border-foreground"
+                ? "border-accent/40 bg-accent-soft"
+                : "border-border bg-card hover:bg-muted/60"
             )}
             onClick={() => onSelect(routine.id)}
             type="button"
           >
             <div className="space-y-0.5">
-              <div className="text-sm font-bold text-foreground">
+              <div
+                className={cn(
+                  "text-sm font-bold",
+                  routine.id === selectedRoutineId
+                    ? "text-accent-soft-foreground"
+                    : "text-foreground"
+                )}
+              >
                 {routine.name}
               </div>
               <div className="text-xs text-muted-foreground">
                 {routine.summary}
               </div>
             </div>
-            <ChevronRight className="size-5 text-foreground" />
+            <ChevronRight className="size-5 text-muted-foreground" />
           </button>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 
@@ -1675,23 +1708,11 @@ function SessionPanel({
     )
   }
 
+  const routineTotals = countRoutineBlocksAndSeries(routine)
+  const savedBarProgressLabel = `0/${routineTotals.series}`
+
   return (
-    <Card
-      ref={panelRef}
-      className="scroll-mt-20 rounded-xl border-border bg-card"
-    >
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg">{routine.name}</CardTitle>
-            <CardDescription>{routine.summary}</CardDescription>
-          </div>
-          <Badge className="rounded border-2 border-border bg-card px-2 py-1 text-xs font-bold text-foreground">
-            {formatRelativeSessionDate(routine.lastSessionAt)}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div ref={panelRef} className="scroll-mt-20 space-y-3">
         {hasWeightedGroups ? (
           <>
             {routine.sections.map((section) => {
@@ -1705,8 +1726,8 @@ function SessionPanel({
 
               return (
                 <div key={section.id} className="space-y-2">
-                  <div className="border-b-2 border-border pb-2">
-                    <span className="text-sm font-bold uppercase tracking-wide text-foreground">
+                  <div className="pb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                       {section.name}
                     </span>
                   </div>
@@ -1722,7 +1743,7 @@ function SessionPanel({
                         open={isOpen}
                       >
                         <div
-                          className="scroll-mt-20 border-b border-dashed border-border pb-3 last:border-b-0"
+                          className="scroll-mt-20 border-b border-border pb-3 last:border-b-0"
                           ref={(element) => {
                             groupRefs.current[group.id] = element
                           }}
@@ -1734,18 +1755,27 @@ function SessionPanel({
                                   ? getGroupTriggerLabel(group)
                                   : undefined
                               }
-                              className={cn(
-                                "flex w-full items-center justify-between gap-3 rounded-lg px-1 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                                isOpen ? "bg-muted/40" : ""
-                              )}
+                              className="flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl px-1 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                               type="button"
                             >
                               <div className="min-w-0">
                                 {!shouldHideGroupName(group) ? (
-                                  <div className="text-sm font-semibold text-foreground">
+                                  <div className="truncate text-base font-bold text-foreground">
                                     {group.name}
                                   </div>
                                 ) : null}
+                                <div className="text-xs text-muted-foreground">
+                                  {group.series}{" "}
+                                  {group.series === 1 ? "serie" : "series"}
+                                  {" × "}
+                                  {group.exercises.length}{" "}
+                                  {group.exercises.length === 1
+                                    ? "ejercicio"
+                                    : "ejercicios"}
+                                  {group.exercises.length > 1
+                                    ? " · en circuito"
+                                    : ""}
+                                </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 <ChevronDown
@@ -1787,7 +1817,7 @@ function SessionPanel({
                                 </div>
                               ) : null}
                               <button
-                                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
                                 onClick={() => onStartAddDayExercise(group.id)}
                                 type="button"
                               >
@@ -1802,13 +1832,14 @@ function SessionPanel({
                                   return (
                                     <div
                                       key={`${group.id}-set-${setNumber}`}
-                                      className="space-y-1 py-1"
+                                      className="rounded-2xl px-3 pb-1 pt-2.5"
+                                      data-set-container
                                     >
-                                      <div className="inline-block rounded bg-accent px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-accent-foreground">
+                                      <div className="inline-flex items-center rounded-full border border-border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                                         Serie {setNumber}
                                       </div>
 
-                                      <div className="space-y-1">
+                                      <div>
                                         {group.exercises.map((exercise) => {
                                           const inputKey = buildWeightInputKey(
                                             exercise.id,
@@ -1841,7 +1872,7 @@ function SessionPanel({
                                               }
                                               key={inputKey}
                                               className={cn(
-                                                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] gap-2 py-2",
+                                                "grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-muted-foreground/15 py-2 last:border-b-0",
                                                 isTimerOpen
                                                   ? "items-start"
                                                   : "items-center"
@@ -1939,13 +1970,14 @@ function SessionPanel({
                                                 <input
                                                   aria-label={`${exercise.name} serie ${setNumber}`}
                                                   className={cn(
-                                                    "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
+                                                    "h-[46px] rounded-xl border border-border bg-card px-2 text-center text-lg font-bold tabular-nums text-foreground outline-none transition-shadow focus:border-accent focus:ring-[3px] focus:ring-accent/20",
                                                     exercise.durationFormat ===
                                                       "mmss"
-                                                      ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
-                                                      : "w-14"
+                                                      ? "w-[84px] placeholder:text-sm placeholder:font-semibold"
+                                                      : "w-[76px]"
                                                   )}
                                                   data-workout-input
+                                                  enterKeyHint="next"
                                                   id={inputId}
                                                   onFocus={
                                                     handleWorkoutInputFocus
@@ -2064,16 +2096,16 @@ function SessionPanel({
             })}
 
             <div className="space-y-1.5 pt-2">
-              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-foreground">
+              <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                 <NotebookPen className="size-3.5" />
-                Nota
+                Nota de sesión
               </label>
               <SessionQuickNoteChips
                 note={note}
                 onAddNote={onAddSessionQuickNote}
               />
               <AutoResizeTextarea
-                className="min-h-32 w-full rounded-md border-2 border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-accent focus:bg-accent/10 sm:min-h-24"
+                className="min-h-32 w-full rounded-[13px] border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-24"
                 maxLength={500}
                 onChange={(event) => onNoteChange(event.target.value)}
                 placeholder="Cómo te sentiste, ajustes..."
@@ -2081,25 +2113,36 @@ function SessionPanel({
               />
             </div>
 
-            <Button
-              className="h-12 w-full rounded-md"
-              disabled={!hasWeightedGroups || isPending}
-              onClick={() => {
-                void onSubmit()
-              }}
-              type="button"
-              variant="action"
-            >
-              {isPending ? "Guardando..." : "Guardar sesión"}
-            </Button>
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl">
+              <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                <div className="shrink-0 text-center leading-tight">
+                  <div className="text-base font-bold tabular-nums text-foreground">
+                    {savedBarProgressLabel}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    series
+                  </div>
+                </div>
+                <Button
+                  className="h-[52px] flex-1 text-base"
+                  disabled={!hasWeightedGroups || isPending}
+                  onClick={() => {
+                    void onSubmit()
+                  }}
+                  type="button"
+                  variant="action"
+                >
+                  {isPending ? "Guardando..." : "Guardar sesión"}
+                </Button>
+              </div>
+            </div>
           </>
         ) : (
-          <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
             Esta rutina no tiene ejercicios con seguimiento de peso.
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 
@@ -2196,6 +2239,12 @@ export function WorkoutApp({
     () => getSessionExerciseBySlotId(sessionRoutine, swapSourceSlotId),
     [sessionRoutine, swapSourceSlotId]
   )
+  const heroTitle = splitRoutineTitle(selectedRoutine?.name ?? "Sin rutina")
+  const routineTotals = React.useMemo(
+    () => countRoutineBlocksAndSeries(sessionRoutine),
+    [sessionRoutine]
+  )
+  const confirmedSeriesCount = 0
   const selectedExerciseIds = React.useMemo(
     () =>
       new Set(
@@ -2586,7 +2635,7 @@ export function WorkoutApp({
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto w-full">
       {status.type !== "idle" ? (
         <FloatingToast
           onClose={() => setStatus({ type: "idle", message: "" })}
@@ -2627,46 +2676,45 @@ export function WorkoutApp({
         open={quickNoteExerciseName !== null}
       />
 
-      <section className="relative mb-4 overflow-hidden rounded-lg border-2 border-border bg-card px-4 py-4 shadow-brutal md:px-5 md:py-5">
-        <div className="space-y-3">
-          <div className="inline-flex items-center rounded border-2 border-border bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent-foreground">
-            Gym App
+      <section className="mb-5 space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-accent-soft-foreground">
+          {heroTitle.kicker}
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {heroTitle.title}
+        </h1>
+        <p className="text-[13px] text-muted-foreground">
+          {routineTotals.blocks}{" "}
+          {routineTotals.blocks === 1 ? "bloque" : "bloques"} ·{" "}
+          {routineTotals.series} series
+        </p>
+        <div className="pt-1">
+          <div className="h-[7px] w-full overflow-hidden rounded-full bg-border">
+            <span
+              className="block h-full rounded-full bg-accent transition-all"
+              style={{
+                width: `${
+                  routineTotals.series > 0
+                    ? Math.round(
+                        (confirmedSeriesCount / routineTotals.series) * 100
+                      )
+                    : 0
+                }%`,
+              }}
+            />
           </div>
-          <div className="max-w-3xl">
-            <h1 className="text-2xl font-black uppercase tracking-tight text-foreground md:text-3xl">
-              Entrenamiento de hoy
-            </h1>
-          </div>
-          <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-2">
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Rutina seleccionada
-              </div>
-              <div className="truncate text-sm font-bold text-foreground">
-                {selectedRoutine?.name ?? "Sin rutina"}
-              </div>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="text-2xl font-black text-foreground">
-                {attendance.daysWithSessions.length}
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                días este mes
-              </div>
-            </div>
-          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {confirmedSeriesCount} de {routineTotals.series} series confirmadas
+          </p>
         </div>
       </section>
 
-      <div className="grid gap-3 xl:grid-cols-[0.85fr_1.15fr]">
-        <div className="grid gap-3">
-          <AttendanceCard attendance={attendance} history={history} />
-          <RoutineList
-            onSelect={handleSelectRoutine}
-            routines={routines}
-            selectedRoutineId={selectedRoutineId}
-          />
-        </div>
+      <div className="grid gap-4">
+        <RoutineList
+          onSelect={handleSelectRoutine}
+          routines={routines}
+          selectedRoutineId={selectedRoutineId}
+        />
 
         <div className="grid gap-3">
           {sessionRoutine ? (
@@ -2702,9 +2750,8 @@ export function WorkoutApp({
             />
           ) : null}
         </div>
-      </div>
 
-      <div className="mt-3">
+        <AttendanceCard attendance={attendance} history={history} />
         <SessionHistory history={history} />
       </div>
     </div>
