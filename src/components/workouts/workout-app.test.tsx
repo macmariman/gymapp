@@ -1238,13 +1238,11 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
-    expect(
-      screen.queryByText("Asistencia del mes actual")
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText("días entrenados")).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: /asistencia/i }))
 
-    expect(screen.getByText("Asistencia del mes actual")).toBeInTheDocument()
+    expect(screen.getByText("días entrenados")).toBeInTheDocument()
   })
 
   it("keeps history collapsed until the section and session are opened", async () => {

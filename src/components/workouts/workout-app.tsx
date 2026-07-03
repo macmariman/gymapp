@@ -81,7 +81,7 @@ import {
   SessionQuickNoteChips,
 } from "@/components/workouts/quick-note-controls"
 
-const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
+const weekDays = ["L", "M", "M", "J", "V", "S", "D"]
 
 type SubmissionState =
   | { type: "idle"; message: string }
@@ -871,6 +871,32 @@ function RoutineList({
   )
 }
 
+function getAttendanceInsights(history: WorkoutPageData["history"]) {
+  if (history.length < 2) {
+    return null
+  }
+
+  const weekMs = 7 * 24 * 60 * 60 * 1000
+  const sessionDates = history.map((entry) => new Date(entry.performedAt))
+  const weekStarts = new Set(
+    sessionDates.map((date) => getWeekStart(date).getTime())
+  )
+
+  let weekStreak = 0
+  let cursor = getWeekStart(new Date()).getTime()
+
+  while (weekStarts.has(cursor)) {
+    weekStreak += 1
+    cursor = getWeekStart(new Date(cursor - weekMs)).getTime()
+  }
+
+  const oldestMs = Math.min(...sessionDates.map((date) => date.getTime()))
+  const spanWeeks = Math.max(1, (Date.now() - oldestMs) / weekMs)
+  const sessionsPerWeek = history.length / spanWeeks
+
+  return { weekStreak, sessionsPerWeek }
+}
+
 function AttendanceCard({
   attendance,
   history,
@@ -908,100 +934,102 @@ function AttendanceCard({
     }
   }, [history, visibleMonthDate])
   const cells = buildAttendanceGrid(visibleAttendance)
+  const isCurrentMonthVisible =
+    visibleMonthDate.getFullYear() === today.getFullYear() &&
+    visibleMonthDate.getMonth() === today.getMonth()
+  const insights = getAttendanceInsights(history)
 
   return (
     <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-      <Card className="gap-0 rounded-xl border-border bg-card">
-        <CardHeader className="pb-0">
-          <CollapsibleTrigger asChild>
-            <button
-              className="flex w-full items-start justify-between gap-4 text-left"
-              type="button"
-            >
-              <div className="space-y-1">
-                <CardTitle className="text-lg text-foreground">
-                  Asistencia
-                </CardTitle>
-                <CardDescription>Sesiones registradas del mes</CardDescription>
+      <section className="border-t border-border pt-3">
+        <CollapsibleTrigger asChild>
+          <button
+            className="flex min-h-[52px] w-full items-center justify-between gap-4 rounded-xl px-1 text-left transition-colors hover:bg-muted/60"
+            type="button"
+          >
+            <div>
+              <div className="text-base font-bold text-foreground">
+                Asistencia
               </div>
-              <ChevronDown
-                className={cn(
-                  "mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200",
-                  isOpen ? "rotate-0" : "-rotate-90"
-                )}
-              />
-            </button>
-          </CollapsibleTrigger>
-        </CardHeader>
+              <div className="text-xs text-muted-foreground">
+                Sesiones registradas del mes
+              </div>
+            </div>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                isOpen ? "rotate-180" : "rotate-0"
+              )}
+            />
+          </button>
+        </CollapsibleTrigger>
         <CollapsibleContent className="overflow-hidden">
-          <CardContent className="space-y-3 pt-3">
-            <div className="flex items-center justify-between border-b border-dashed border-border pb-3">
-              <div className="flex items-center gap-3">
-                <button
-                  aria-label="Mes anterior"
-                  className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:bg-muted"
-                  onClick={() =>
-                    setVisibleMonthDate(
-                      (currentDate) =>
-                        new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() - 1,
-                          1
-                        )
-                    )
-                  }
-                  type="button"
-                >
-                  <ChevronLeft className="size-4" />
-                </button>
-                <div className="space-y-0.5">
-                  <div className="text-sm font-bold text-foreground">
-                    {new Intl.DateTimeFormat("es-UY", {
-                      month: "long",
-                      year: "numeric",
-                    }).format(visibleMonthDate)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Asistencia del mes actual
-                  </div>
-                </div>
-                <button
-                  aria-label="Mes siguiente"
-                  className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={!canGoForward}
-                  onClick={() =>
-                    setVisibleMonthDate(
-                      (currentDate) =>
-                        new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() + 1,
-                          1
-                        )
-                    )
-                  }
-                  type="button"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
+          <div className="space-y-4 px-1 pt-3">
+            <div>
+              <div className="text-[44px] font-bold leading-none tabular-nums text-foreground">
+                {visibleAttendance.daysWithSessions.length}
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-semibold text-foreground">
-                  {visibleAttendance.daysWithSessions.length}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {visibleAttendance.daysWithSessions.length === 1
-                    ? "día entrenado"
-                    : "días entrenados"}
-                </div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {visibleAttendance.daysWithSessions.length === 1
+                  ? "día entrenado"
+                  : "días entrenados"}
               </div>
             </div>
 
-            <div className="pt-1">
+            <div className="flex items-center justify-between">
+              <button
+                aria-label="Mes anterior"
+                className="inline-flex size-10 items-center justify-center rounded-[11px] border border-border bg-card text-muted-foreground transition hover:bg-muted"
+                onClick={() =>
+                  setVisibleMonthDate(
+                    (currentDate) =>
+                      new Date(
+                        currentDate.getFullYear(),
+                        currentDate.getMonth() - 1,
+                        1
+                      )
+                  )
+                }
+                type="button"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <div className="text-center text-sm font-bold text-foreground">
+                {(() => {
+                  const label = new Intl.DateTimeFormat("es-UY", {
+                    month: "long",
+                    year: "numeric",
+                  }).format(visibleMonthDate)
+
+                  return label.charAt(0).toUpperCase() + label.slice(1)
+                })()}
+              </div>
+              <button
+                aria-label="Mes siguiente"
+                className="inline-flex size-10 items-center justify-center rounded-[11px] border border-border bg-card text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!canGoForward}
+                onClick={() =>
+                  setVisibleMonthDate(
+                    (currentDate) =>
+                      new Date(
+                        currentDate.getFullYear(),
+                        currentDate.getMonth() + 1,
+                        1
+                      )
+                  )
+                }
+                type="button"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+
+            <div>
               <div className="mb-2 grid grid-cols-7 gap-1.5">
-                {weekDays.map((label) => (
+                {weekDays.map((label, index) => (
                   <div
-                    key={label}
-                    className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
+                    key={`${label}-${index}`}
+                    className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
                   >
                     {label}
                   </div>
@@ -1014,10 +1042,14 @@ function AttendanceCard({
                     <div
                       key={`${cell.day}-${index}`}
                       className={cn(
-                        "flex aspect-square items-center justify-center rounded-lg text-sm font-semibold",
+                        "flex aspect-square items-center justify-center rounded-[11px] text-sm font-semibold",
                         cell.completed
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-muted text-muted-foreground"
+                          ? "bg-accent font-bold text-accent-foreground"
+                          : "bg-muted text-muted-foreground",
+                        isCurrentMonthVisible &&
+                          cell.day === today.getDate() &&
+                          !cell.completed &&
+                          "bg-card text-accent-soft-foreground shadow-[inset_0_0_0_2px_var(--accent)]"
                       )}
                     >
                       {cell.day}
@@ -1025,15 +1057,38 @@ function AttendanceCard({
                   ) : (
                     <div
                       key={`empty-${index}`}
-                      className="aspect-square rounded-lg bg-transparent"
+                      className="aspect-square rounded-[11px] bg-transparent"
                     />
                   )
                 )}
               </div>
             </div>
-          </CardContent>
+
+            {insights ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-[13px] border border-border px-3 py-2.5">
+                  <div className="text-2xl font-bold tabular-nums text-foreground">
+                    {insights.weekStreak}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {insights.weekStreak === 1
+                      ? "semana seguida activo"
+                      : "semanas seguidas activo"}
+                  </div>
+                </div>
+                <div className="rounded-[13px] border border-border px-3 py-2.5">
+                  <div className="text-2xl font-bold tabular-nums text-foreground">
+                    {insights.sessionsPerWeek.toFixed(1).replace(".", ",")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    sesiones/semana prom.
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </CollapsibleContent>
-      </Card>
+      </section>
     </Collapsible>
   )
 }
@@ -1061,32 +1116,32 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
 
   return (
     <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-      <Card>
-        <CardHeader className="border-b-2 border-border">
-          <CollapsibleTrigger asChild>
-            <button
-              className="flex w-full items-start justify-between gap-4 text-left"
-              type="button"
-            >
-              <div className="space-y-1">
-                <CardTitle className="text-lg uppercase tracking-wide">
-                  Historial
-                </CardTitle>
-                <CardDescription>Últimas 10 sesiones</CardDescription>
+      <section className="border-t border-border pt-3">
+        <CollapsibleTrigger asChild>
+          <button
+            className="flex min-h-[52px] w-full items-center justify-between gap-4 rounded-xl px-1 text-left transition-colors hover:bg-muted/60"
+            type="button"
+          >
+            <div>
+              <div className="text-base font-bold text-foreground">
+                Historial
               </div>
-              <ChevronDown
-                className={cn(
-                  "mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200",
-                  isOpen ? "rotate-0" : "-rotate-90"
-                )}
-              />
-            </button>
-          </CollapsibleTrigger>
-        </CardHeader>
+              <div className="text-xs text-muted-foreground">
+                Últimas 10 sesiones
+              </div>
+            </div>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                isOpen ? "rotate-180" : "rotate-0"
+              )}
+            />
+          </button>
+        </CollapsibleTrigger>
         <CollapsibleContent className="overflow-hidden">
-          <CardContent className="space-y-0 pt-2">
+          <div className="space-y-0 px-1 pt-1">
             {history.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
                 Todavía no hay sesiones guardadas.
               </div>
             ) : (
@@ -1101,11 +1156,11 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                   <div className="border-b border-border last:border-b-0">
                     <CollapsibleTrigger asChild>
                       <button
-                        className="flex w-full items-center justify-between gap-3 py-2 text-left"
+                        className="flex min-h-[52px] w-full items-center justify-between gap-3 py-2 text-left"
                         type="button"
                       >
                         <div>
-                          <div className="text-sm font-semibold text-foreground">
+                          <div className="text-[15px] font-bold text-foreground">
                             {entry.routineName}
                           </div>
                           <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1122,9 +1177,9 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                       </button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="overflow-hidden">
-                      <div className="space-y-2 border-t border-dashed border-border py-3">
+                      <div className="space-y-2 py-2">
                         {entry.note ? (
-                          <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                          <div className="rounded-[11px] bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
                             {entry.note}
                           </div>
                         ) : null}
@@ -1162,9 +1217,9 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                 </Collapsible>
               ))
             )}
-          </CardContent>
+          </div>
         </CollapsibleContent>
-      </Card>
+      </section>
     </Collapsible>
   )
 }
@@ -1203,18 +1258,18 @@ function ExerciseSwapDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl"
+        className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-border bg-card p-0 shadow-lg sm:max-w-2xl"
       >
-        <DialogHeader className="space-y-3 border-b-2 border-border px-4 py-4 text-left">
-          <DialogTitle className="text-lg font-bold uppercase tracking-wide">
+        <DialogHeader className="space-y-3 border-b border-border px-4 py-4 text-left">
+          <DialogTitle className="text-lg font-bold">
             Intercambiar ejercicio
           </DialogTitle>
           {sourceExercise ? (
-            <div className="rounded border-2 border-accent bg-accent px-3 py-2">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-accent-foreground/70">
+            <div className="rounded-xl bg-accent-soft px-3 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-accent-soft-foreground/80">
                 Origen
               </div>
-              <div className="text-sm font-bold text-accent-foreground">
+              <div className="text-sm font-bold text-accent-soft-foreground">
                 {sourceExercise.name}
               </div>
             </div>
@@ -1223,7 +1278,7 @@ function ExerciseSwapDialog({
 
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {candidateSections.length === 0 ? (
-            <div className="rounded border-2 border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
               No hay otros ejercicios disponibles para intercambiar ahora.
             </div>
           ) : (
@@ -1304,10 +1359,10 @@ function DayExerciseDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl"
+        className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-border bg-card p-0 shadow-lg sm:max-w-2xl"
       >
-        <DialogHeader className="border-b-2 border-border px-4 py-4 text-left">
-          <DialogTitle className="text-lg font-bold uppercase tracking-wide">
+        <DialogHeader className="border-b border-border px-4 py-4 text-left">
+          <DialogTitle className="text-lg font-bold">
             Elegir ejercicio
           </DialogTitle>
         </DialogHeader>
