@@ -53,7 +53,7 @@ function getTrendBadgeClassName(trendLabel: string) {
   }
 
   if (trendLabel === "Bajando") {
-    return "border-rose-200 bg-rose-50 text-rose-700"
+    return "border-transparent bg-destructive/10 text-destructive"
   }
 
   if (trendLabel === "Estable") {

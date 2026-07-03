@@ -68,7 +68,6 @@
   --chart-3: oklch(0.7 0.13 60);
   --chart-4: oklch(0.52 0.12 230);
   --chart-5: oklch(0.61 0.17 30);
-  --shadow-offset: 3px;
 }
 
 .dark {
@@ -112,12 +111,6 @@
 }
 
 @layer utilities {
-  .shadow-brutal {
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 0 var(--border);
-  }
-  .shadow-brutal-sm {
-    box-shadow: 2px 2px 0 0 var(--border);
-  }
   .shadow-save {
     box-shadow: 0 10px 22px -8px color-mix(in oklch, var(--accent) 60%, transparent);
   }

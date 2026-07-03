@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { NotebookPen } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -20,12 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-type ExerciseQuickNoteTriggerProps = {
-  exerciseName: string
-  setNumber: number
-  onClick: () => void
-}
-
 type ExerciseQuickNoteDialogProps = {
   exerciseName: string | null
   open: boolean
@@ -36,23 +29,6 @@ type ExerciseQuickNoteDialogProps = {
 type SessionQuickNoteChipsProps = {
   note: string
   onAddNote: (value: string) => void
-}
-
-export function ExerciseQuickNoteTrigger({
-  exerciseName,
-  setNumber,
-  onClick,
-}: ExerciseQuickNoteTriggerProps) {
-  return (
-    <button
-      aria-label={`Agregar nota rápida para ${exerciseName} serie ${setNumber}`}
-      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50 text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      onClick={onClick}
-      type="button"
-    >
-      <NotebookPen className="size-3.5" />
-    </button>
-  )
 }
 
 export function ExerciseQuickNoteDialog({
@@ -113,7 +89,7 @@ export function ExerciseQuickNoteDialog({
                 <Button
                   aria-pressed={isSelected}
                   className={cn(
-                    "h-8 rounded-md border-border px-2.5 text-xs",
+                    "h-9 rounded-full border-border px-3 text-xs",
                     isSelected
                       ? "bg-accent text-accent-foreground hover:bg-accent/90"
                       : ""
@@ -133,7 +109,7 @@ export function ExerciseQuickNoteDialog({
           <label className="flex flex-col gap-1.5 text-sm font-semibold text-foreground">
             Detalle opcional
             <AutoResizeTextarea
-              className="min-h-32 w-full rounded-md border-2 border-border bg-muted px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-accent focus:bg-accent/10 sm:min-h-24"
+              className="min-h-32 w-full rounded-[13px] border border-border bg-card px-3 py-2 text-sm font-normal text-foreground outline-none transition-shadow focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-24"
               maxLength={180}
               onChange={(event) => setDetail(event.target.value)}
               value={detail}
@@ -179,7 +155,7 @@ export function SessionQuickNoteChips({
           <Button
             aria-pressed={isUsed}
             className={cn(
-              "h-8 rounded-md border-border px-2.5 text-xs",
+              "h-9 rounded-full border-border px-3 text-xs",
               isUsed
                 ? "bg-accent text-accent-foreground hover:bg-accent/90"
                 : "hover:bg-background hover:text-foreground"
