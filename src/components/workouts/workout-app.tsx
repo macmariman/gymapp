@@ -43,6 +43,7 @@ import {
 import type {
   ExerciseGroupView,
   ExerciseLogType,
+  ExerciseView,
   RoutineSummary,
   RoutineWithStructure,
   WorkoutPageData,
@@ -377,6 +378,10 @@ function buildInitialValues(routine: RoutineWithStructure | undefined) {
             return
           }
 
+          if (!shouldPrefillExerciseValue(exercise)) {
+            return
+          }
+
           exercise.lastLogValues.forEach((value, index) => {
             const setNumber = index + 1
 
@@ -400,6 +405,10 @@ function buildExerciseValues(
   exercise: ExerciseGroupView["exercises"][number],
   series: number
 ) {
+  if (!shouldPrefillExerciseValue(exercise)) {
+    return {}
+  }
+
   return exercise.lastLogValues.reduce<Record<string, string>>(
     (exerciseValues, value, index) => {
       const setNumber = index + 1
@@ -633,6 +642,12 @@ function getSuggestedRoutineId(
 
 function isExerciseLoggable(logType: ExerciseLogType) {
   return logType !== "none"
+}
+
+function shouldPrefillExerciseValue(
+  exercise: Pick<ExerciseView, "logType" | "durationFormat">
+) {
+  return !(exercise.logType === "time" && exercise.durationFormat === "mmss")
 }
 
 function getInputPlaceholderForFormat(

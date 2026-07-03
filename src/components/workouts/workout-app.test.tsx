@@ -301,7 +301,7 @@ describe("WorkoutApp", () => {
       "placeholder",
       "mm:ss"
     )
-    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("15:00")
+    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("")
   })
 
   it("scrolls to the manually opened group after closing the previous group", async () => {
@@ -762,6 +762,38 @@ describe("WorkoutApp", () => {
         expect.objectContaining({
           exerciseId: "exercise-run-1",
           value: "12:34",
+        }),
+      ])
+    )
+  })
+
+  it("does not submit a prefilled cardio log when running is left blank", async () => {
+    const user = userEvent.setup()
+    render(<WorkoutApp {...workoutPageData} />)
+
+    await user.click(screen.getByRole("button", { name: /^cardio/i }))
+    expect(screen.getByLabelText("Correr serie 1")).toHaveValue("")
+    await user.click(screen.getByRole("button", { name: /zona media/i }))
+    await user.click(screen.getByRole("button", { name: "Guardar sesión" }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    const [, request] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ]
+    const payload = JSON.parse(String(request.body)) as {
+      setLogs: Array<{
+        exerciseId: string
+      }>
+    }
+
+    expect(payload.setLogs).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({
+          exerciseId: "exercise-run-1",
         }),
       ])
     )
