@@ -282,14 +282,24 @@ describe("WorkoutApp", () => {
     expect(
       firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
     ).toHaveValue("")
+    await user.click(
+      screen.getByRole("button", {
+        name: "Opciones de Pecho plano con barra serie 1",
+      })
+    )
     expect(
-      screen.getAllByRole("link", {
-        name: "Ver progreso de Pecho plano con barra",
-      })[0]
+      screen.getByRole("link", { name: /ver progreso \/ historial/i })
     ).toHaveAttribute(
       "href",
       "/progress/movement-1?routineId=routine-1&slotId=exercise-1"
     )
+
+    await user.keyboard("{Escape}")
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("link", { name: /ver progreso \/ historial/i })
+      ).not.toBeInTheDocument()
+    })
 
     await user.click(screen.getByRole("button", { name: /^cardio/i }))
 
@@ -472,9 +482,10 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+        name: "Opciones de Pecho plano con barra serie 1",
       })
     )
+    fireEvent.click(screen.getByRole("button", { name: "Agregar nota" }))
 
     const dialog = screen.getByRole("dialog")
     expect(
@@ -510,9 +521,10 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+        name: "Opciones de Pecho plano con barra serie 1",
       })
     )
+    fireEvent.click(screen.getByRole("button", { name: "Agregar nota" }))
 
     const dialog = screen.getByRole("dialog")
     await user.click(within(dialog).getByRole("button", { name: "Subir peso" }))
@@ -564,9 +576,10 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+        name: "Opciones de Pecho plano con barra serie 1",
       })
     )
+    fireEvent.click(screen.getByRole("button", { name: "Agregar nota" }))
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "Subir peso",
@@ -916,10 +929,11 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /zona media/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Usar cronómetro en Plancha ventral serie 1",
+        name: "Opciones de Plancha ventral serie 1",
       })
     )
-    await user.click(screen.getByRole("button", { name: "Iniciar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cronómetro" }))
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar" }))
 
     act(() => {
       jest.advanceTimersByTime(37_000)
@@ -927,10 +941,12 @@ describe("WorkoutApp", () => {
 
     expect(screen.getByText("00:37")).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Usar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Usar" }))
 
     expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("37")
-    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Usar" })
+    ).not.toBeInTheDocument()
   })
 
   it("requests and releases a wake lock while the stopwatch is running", async () => {
@@ -958,16 +974,17 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /zona media/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Usar cronómetro en Plancha ventral serie 1",
+        name: "Opciones de Plancha ventral serie 1",
       })
     )
-    await user.click(screen.getByRole("button", { name: "Iniciar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cronómetro" }))
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar" }))
 
     await waitFor(() => {
       expect(wakeLockRequestMock).toHaveBeenCalledWith("screen")
     })
 
-    await user.click(screen.getByRole("button", { name: "Pausar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Pausar" }))
 
     expect(resolveWakeLockRequest).not.toBeNull()
 
@@ -998,10 +1015,11 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /^cardio/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Usar cronómetro en Correr serie 1",
+        name: "Opciones de Correr serie 1",
       })
     )
-    await user.click(screen.getByRole("button", { name: "Iniciar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Cronómetro" }))
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar" }))
 
     act(() => {
       jest.advanceTimersByTime(123_000)
@@ -1009,10 +1027,12 @@ describe("WorkoutApp", () => {
 
     expect(screen.getByText("02:03")).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Usar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Usar" }))
 
     expect(screen.getByLabelText("Correr serie 1")).toHaveValue("02:03")
-    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Usar" })
+    ).not.toBeInTheDocument()
   })
 
   it("swaps exercises inside the same routine and can undo the swap", async () => {
@@ -1020,16 +1040,13 @@ describe("WorkoutApp", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
-    const pechoRow = screen
-      .getByLabelText("Pecho plano con barra serie 1")
-      .closest("div.grid")
-
-    expect(pechoRow).not.toBeNull()
-
     await user.click(
-      within(pechoRow as HTMLElement).getByRole("button", {
-        name: "Intercambiar",
+      screen.getByRole("button", {
+        name: "Opciones de Pecho plano con barra serie 1",
       })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cambiar ejercicio" })
     )
 
     expect(screen.getByText("Intercambiar ejercicio")).toBeInTheDocument()
@@ -1059,16 +1076,13 @@ describe("WorkoutApp", () => {
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
-    const swappedRow = screen
-      .getByLabelText("Aperturas con mancuernas serie 1")
-      .closest("div.grid")
-
-    expect(swappedRow).not.toBeNull()
-
     await user.click(
-      within(swappedRow as HTMLElement).getByRole("button", {
-        name: "Deshacer intercambio",
+      screen.getByRole("button", {
+        name: "Opciones de Aperturas con mancuernas serie 1",
       })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: "Deshacer intercambio" })
     )
 
     // After undo, "Pecho plano" is back in Bloque 1 (3 series), so serie 4 input is gone
@@ -1084,16 +1098,13 @@ describe("WorkoutApp", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
-    const pechoRow = screen
-      .getByLabelText("Pecho plano con barra serie 1")
-      .closest("div.grid")
-
-    expect(pechoRow).not.toBeNull()
-
     await user.click(
-      within(pechoRow as HTMLElement).getByRole("button", {
-        name: "Intercambiar",
+      screen.getByRole("button", {
+        name: "Opciones de Pecho plano con barra serie 1",
       })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cambiar ejercicio" })
     )
     await user.click(
       screen.getByRole("button", { name: /aperturas con mancuernas/i })
@@ -1212,8 +1223,11 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
 
     await user.click(
-      screen.getAllByRole("button", { name: "Quitar Remo con barra" })[0]
+      screen.getByRole("button", {
+        name: "Opciones de Remo con barra serie 1",
+      })
     )
+    fireEvent.click(screen.getByRole("button", { name: "Quitar" }))
 
     expect(
       screen.queryByLabelText("Remo con barra serie 1")

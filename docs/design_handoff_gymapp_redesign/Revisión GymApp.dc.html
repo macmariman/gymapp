@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+*{box-sizing:border-box}
+html,body{background:#e7e5dd;margin:0}
+.studio{font-family:'Space Grotesk',system-ui,sans-serif;background:#e7e5dd;color:#1a1a17;padding:56px;min-height:100vh;width:fit-content;min-width:100%}
+.mono{font-family:'Space Mono',ui-monospace,monospace}
+/* ---- review chrome ---- */
+.head{max-width:1180px;margin:0 auto 32px}
+.kick{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:#8a8578}
+.htitle{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:10px 0 6px}
+.hsub{font-size:15px;color:#6f6a5e;max-width:640px;line-height:1.5}
+.verdicts{display:flex;gap:16px;margin-top:22px;flex-wrap:wrap}
+.vpill{flex:1;min-width:300px;background:#fbfaf6;border:1px solid #d8d5c9;border-radius:14px;padding:16px 18px}
+.vq{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8a8578;margin-bottom:8px}
+.va{font-size:19px;font-weight:700;display:flex;align-items:center;gap:9px}
+.vr{font-size:13.5px;color:#6f6a5e;line-height:1.5;margin-top:7px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.d-warn{background:oklch(0.72 0.16 60)}.d-bad{background:oklch(0.6 0.21 25)}.d-good{background:oklch(0.6 0.13 150)}
+.stage{max-width:1180px;margin:0 auto;display:flex;gap:48px;align-items:flex-start}
+/* ---- phone ---- */
+.phonecol{flex:none;width:392px;position:sticky;top:24px}
+.phonelabel{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#8a8578;margin-bottom:12px;text-align:center}
+.phone{width:392px;background:#1a1a17;border-radius:44px;padding:11px;box-shadow:0 30px 60px -20px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.1)}
+.screen{border-radius:34px;overflow:hidden;position:relative;background:linear-gradient(180deg,#f7f8f5 0%,#eef2ec 35%,#e5ece6 100%)}
+/* ==== recreated app (their exact tokens) ==== */
+.app{--fg:oklch(0.13 0.02 260);--mut:oklch(0.96 0.005 90);--mutfg:oklch(0.45 0.02 260);--acc:oklch(0.85 0.2 145);--accfg:oklch(0.18 0.05 145);--bd:oklch(0.13 0.02 260);font-family:'Space Grotesk',system-ui,sans-serif;color:var(--fg)}
+.app .ah{position:sticky;top:0;z-index:5;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(255,255,255,.8);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.4)}
+.app .albox{width:32px;height:32px;border-radius:14px;background:#020617;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 16px rgba(2,6,23,.1)}
+.app .albrand{font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#020617;line-height:1.1}
+.app .alsub{font-size:11px;color:#64748b}
+.app .aicn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#334155}
+.appbody{padding:14px 10px 22px}
+/* hero */
+.hero{position:relative;border:2px solid var(--bd);border-radius:8px;background:#fff;padding:16px;box-shadow:3px 3px 0 0 var(--bd);margin-bottom:14px}
+.badge-acc{display:inline-flex;align-items:center;border:2px solid var(--bd);background:var(--acc);color:var(--accfg);padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;border-radius:5px}
+.hh1{font-size:26px;font-weight:800;letter-spacing:-.02em;text-transform:uppercase;margin:12px 0 0;line-height:1.05}
+.herofoot{display:flex;justify-content:space-between;align-items:flex-end;border-top:2px solid var(--bd);margin-top:14px;padding-top:12px}
+.lbl{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mutfg)}
+.strong{font-size:14px;font-weight:700}
+.bignum{font-size:26px;font-weight:800;line-height:1}
+/* cards */
+.card{position:relative;border:1px solid var(--bd);border-radius:12px;background:#fff;margin-bottom:12px;overflow:hidden}
+.card.brutal{border:2px solid var(--bd)}
+.chdr{padding:14px 16px}
+.chdr.bb{border-bottom:2px solid var(--bd)}
+.ctitle{font-size:17px;font-weight:700}
+.ctitle.up{text-transform:uppercase;letter-spacing:.03em}
+.cdesc{font-size:13px;color:var(--mutfg);margin-top:2px}
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.chev{color:var(--mutfg);flex:none}
+/* routines */
+.rlist{padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.ritem{display:flex;align-items:center;justify-content:space-between;gap:10px;border:2px solid var(--bd);border-radius:6px;padding:9px 12px;background:#fff;text-align:left}
+.ritem.sel{border-color:var(--acc);background:color-mix(in oklch,var(--acc) 12%,#fff);box-shadow:2px 2px 0 0 var(--bd)}
+.rtext{flex:1;min-width:0}
+.rname{font-size:13.5px;font-weight:700;line-height:1.25}
+.rsum{font-size:11.5px;color:var(--mutfg)}
+/* session */
+.sect{border-bottom:2px solid var(--bd);padding-bottom:8px;margin-bottom:10px}
+.sectn{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.grp{border-bottom:1px dashed var(--bd);padding:6px 0 12px}
+.gtrig{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px;border-radius:8px;background:color-mix(in oklch,var(--mut) 40%,#fff)}
+.gname{font-size:13.5px;font-weight:600;white-space:nowrap}
+.prevnote{border-left:2px solid var(--bd);padding-left:8px;margin:8px 0}
+.prevnote p{font-size:11.5px;color:var(--mutfg);margin:0;line-height:1.4}
+.addex{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--mutfg);padding:5px 6px;margin:6px 0}
+.serie{display:inline-block;border-radius:4px;background:var(--acc);color:var(--accfg);padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin:8px 0 4px;white-space:nowrap}
+.exrow{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;min-height:44px;padding:7px 0}
+.exleft{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start}
+.icbtn{width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--mutfg);flex:none}
+.exname{font-size:13.5px;font-weight:700}
+.extar{font-size:11.5px;color:var(--mutfg);margin-top:2px}
+.exright{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.winput{width:56px;height:32px;border:2px solid var(--bd);border-radius:4px;background:#fff;text-align:right;padding:0 8px;font-size:13px;font-weight:700;color:var(--fg)}
+.winput::placeholder{color:var(--mutfg);font-weight:600}
+/* note + save */
+.notelbl{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin:14px 0 7px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px}
+.chip{border:1.5px solid var(--bd);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:600;background:#fff}
+.notearea{width:100%;min-height:76px;border:2px solid var(--bd);border-radius:6px;background:var(--mut);padding:8px 10px;font-size:13px;color:var(--mutfg);font-family:inherit}
+.savebtn{position:relative;width:100%;height:48px;border:2px solid var(--bd);border-radius:6px;background:var(--acc);color:var(--accfg);font-weight:700;letter-spacing:.04em;text-transform:uppercase;box-shadow:3px 3px 0 0 var(--bd);margin-top:14px}
+/* attendance mini grid */
+.agrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:0 16px 14px}
+.acell{aspect-ratio:1;border-radius:8px;background:var(--mut);color:var(--mutfg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.acell.on{background:var(--acc);color:var(--accfg)}
+.divider-pin{position:relative;height:14px}
+/* ---- pins ---- */
+.pin{position:absolute;top:-10px;right:-10px;width:26px;height:26px;border-radius:50%;background:oklch(0.55 0.19 25);color:#fff;font-family:'Space Mono',monospace;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:20;box-shadow:0 3px 8px rgba(0,0,0,.28),0 0 0 3px #fff;cursor:default;transition:transform .12s,background .12s}
+.pin.pos{background:oklch(0.55 0.13 150)}
+.pin.mid{position:static;display:inline-flex;top:auto;right:auto;box-shadow:0 3px 8px rgba(0,0,0,.28),0 0 0 3px #eef2ec}
+.pin.on{transform:scale(1.28);background:#1a1a17}
+/* ---- findings ---- */
+.findcol{flex:1;min-width:0;padding-top:36px}
+.fgroup{margin-bottom:30px}
+.fgh{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#8a8578;border-bottom:1px solid #d2cfc3;padding-bottom:9px;margin-bottom:16px}
+.find{display:flex;gap:14px;padding:15px 16px;border:1px solid #dedbcf;border-radius:13px;background:#fbfaf6;margin-bottom:12px;transition:border-color .12s,box-shadow .12s,background .12s}
+.find.on{border-color:#1a1a17;box-shadow:0 8px 24px -10px rgba(0,0,0,.28);background:#fff}
+.fnum{width:28px;height:28px;border-radius:50%;flex:none;background:oklch(0.55 0.19 25);color:#fff;font-family:'Space Mono',monospace;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.fnum.pos{background:oklch(0.55 0.13 150)}
+.fbody{flex:1;min-width:0}
+.ftop{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+.ftitle{font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+.tag{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px;border-radius:5px}
+.tag-v{background:#e9e4f5;color:#5b4a97}.tag-f{background:#f5e9e0;color:#9a5a2a}.tag-p{background:#e0f0e4;color:#2f6b42}
+.fwhy{font-size:13.5px;color:#4a463d;line-height:1.55}
+.fsug{font-size:13px;color:#6f6a5e;line-height:1.5;margin-top:7px;padding-left:12px;border-left:2px solid #d8d5c9}
+.fsug b{color:#4a463d;font-weight:700}
+.foot{max-width:1180px;margin:34px auto 0;font-size:12.5px;color:#8a8578;line-height:1.6}
+.turnbadge{display:inline-flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.06em;background:#1a1a17;color:#fff;padding:5px 11px;border-radius:8px}
+.turndiv{max-width:1180px;margin:56px auto;border-top:1px dashed #c9c6ba}
+.solve{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid #dedbcf;font-size:13.5px;color:#4a463d;line-height:1.5}
+.solve b{color:#1a1a17}
+.solve:last-child{border-bottom:0}
+.sv{width:24px;height:24px;border-radius:50%;background:oklch(0.6 0.13 150);color:#fff;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-top:1px}
+.screen.tall{height:764px;overflow-y:auto}
+/* ===== proposal app ===== */
+.napp{--fg:oklch(0.18 0.02 260);--mutfg:oklch(0.48 0.02 260);--line:oklch(0.9 0.006 90);--acc:oklch(0.7 0.13 145);--accsoft:color-mix(in oklch,var(--acc) 15%,#fff);--accfg:oklch(0.3 0.07 145);font-family:'Space Grotesk',system-ui,sans-serif;color:var(--fg);background:#fbfbf9;min-height:100%}
+.napp .nhd{position:sticky;top:0;z-index:6;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(251,251,249,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nmark{width:30px;height:30px;border-radius:9px;background:var(--fg);color:#fbfbf9;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:.02em}
+.nbrand{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.niconbtn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--mutfg);margin-right:-10px}
+.nbody{padding:18px 16px}
+.nkick{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+.nh1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin:5px 0 3px;line-height:1.1}
+.nmeta{font-size:13px;color:var(--mutfg)}
+.nbar{height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:15px}
+.nbar>span{display:block;height:100%;background:var(--acc);border-radius:999px}
+.nbarlbl{font-size:11.5px;color:var(--mutfg);margin-top:7px}
+.nex{padding:20px 0;border-bottom:1px solid var(--line)}
+.nexhd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.nexname{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.nextar{font-size:12.5px;color:var(--mutfg);margin-top:3px}
+.nexlink{font-size:12.5px;color:var(--mutfg);font-weight:600;white-space:nowrap;padding-top:3px}
+.nnote{font-size:12px;color:var(--accfg);background:var(--accsoft);border-radius:10px;padding:9px 11px;margin-top:11px;line-height:1.45}
+.nsets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:13px}
+.nset{height:62px;border-radius:13px;border:1px solid var(--line);background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.nsetlbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mutfg)}
+.nsetval{font-size:19px;font-weight:700}
+.nset.done{background:var(--accsoft);border-color:transparent}
+.nset.done .nsetval{color:var(--accfg)}
+.nset.cur{border:2px solid var(--acc);box-shadow:0 0 0 3px var(--accsoft)}
+.nset .gv{color:color-mix(in oklch,var(--mutfg) 34%,#fff)}
+.nacts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.nact{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:600;color:var(--fg)}
+.nact svg{color:var(--mutfg);flex:none}
+.ncol{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px 0;border-bottom:1px solid var(--line)}
+.ncolname{font-size:15px;font-weight:600}
+.ncolsub{font-size:12px;color:var(--mutfg);margin-top:2px}
+.naddday{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:44px;border-radius:12px;border:1px dashed color-mix(in oklch,var(--mutfg) 40%,#fff);background:transparent;color:var(--mutfg);font-size:13px;font-weight:600;margin-top:18px}
+.nnf{margin-top:20px}
+.nnflbl{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mutfg);margin-bottom:9px}
+.nnfarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:13px;background:#fff;padding:11px 13px;font-size:13.5px;color:var(--mutfg);font-family:inherit}
+.nsecwrap{margin-top:8px}
+.nsave{position:sticky;bottom:0;z-index:6;display:flex;align-items:center;gap:13px;padding:12px 16px;background:rgba(251,251,249,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.nsaveinfo{flex:none}
+.nsavenum{font-size:18px;font-weight:700;line-height:1}
+.nsavesub{font-size:10px;color:var(--mutfg);letter-spacing:.07em;text-transform:uppercase;margin-top:2px}
+.nsavebtn{flex:1;height:52px;border-radius:15px;border:0;background:var(--acc);color:#fff;font-size:15px;font-weight:700;box-shadow:0 10px 22px -8px color-mix(in oklch,var(--acc) 65%,transparent)}
+.blk{margin-top:22px}
+.blkhd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.blkname{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.blksub{font-size:12px;color:var(--mutfg);margin-top:3px}
+.blkprog{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--acc);flex:none}
+.ser{border-radius:14px;padding:11px 12px 3px;margin-bottom:8px}
+.ser.cur{background:var(--accsoft)}
+.ser.done{opacity:.6}
+.serhd{display:flex;align-items:center;gap:9px;margin-bottom:2px}
+.serpill{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.serpill.done{border:1px solid color-mix(in oklch,var(--mutfg) 40%,#fff);color:var(--mutfg)}
+.serpill.cur{background:var(--acc);color:#fff}
+.sertag{font-size:11px;color:var(--mutfg);font-weight:600}
+.sertag.curt{color:var(--accfg)}
+.restbtn{margin-left:auto;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 11px;border-radius:999px;border:1px solid color-mix(in oklch,var(--acc) 40%,#fff);background:#fff;font-size:11.5px;font-weight:600;color:var(--accfg)}
+.restbtn svg{flex:none}
+.exline{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;min-height:52px;border-bottom:1px solid color-mix(in oklch,var(--mutfg) 13%,transparent)}
+.exline.last{border-bottom:0}
+.exn{display:flex;flex-direction:column;gap:2px;min-width:0}
+.exntop{font-size:14px;font-weight:700}
+.exchev{color:var(--mutfg);font-weight:400;margin-left:3px}
+.ext{font-size:11.5px;color:var(--mutfg)}
+.val{font-size:18px;font-weight:700;color:var(--accfg);width:76px;text-align:center}
+.bigin{width:76px;height:46px;border-radius:12px;border:1px solid var(--line);background:#fff;text-align:center;font-size:18px;font-weight:700;color:var(--fg);font-family:inherit}
+.bigin::placeholder{color:color-mix(in oklch,var(--mutfg) 34%,#fff);font-weight:600}
+.bigin.fill{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in oklch,var(--acc) 16%,transparent)}
+.bigin.ghost{color:color-mix(in oklch,var(--mutfg) 46%,#fff);font-weight:600;border-style:dashed}
+.bigin.done{border-color:var(--line);color:var(--fg)}
+.bigin.active{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in oklch,var(--acc) 18%,transparent)}
+.setctl{display:flex;align-items:center;gap:8px}
+.stcol{width:20px;display:flex;align-items:center;justify-content:center;flex:none}
+.stcol.ok{color:var(--acc)}
+.dotcue{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 3px color-mix(in oklch,var(--acc) 20%,transparent)}
+.stage.wide{max-width:1640px}
+.nchips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px}
+.nchip{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;background:#fff;color:var(--fg)}
+.scrim{position:relative;min-height:660px;background:#fbfbf9;overflow:hidden}
+.scrimhint{padding:26px 18px}
+.scrimdim{position:absolute;inset:0;background:rgba(24,24,20,.4);z-index:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:2;background:#fbfbf9;border-radius:24px 24px 0 0;padding:9px 18px 22px;box-shadow:0 -14px 34px rgba(0,0,0,.22)}
+.sheetgrip{width:40px;height:5px;border-radius:999px;background:var(--line);margin:2px auto 14px}
+.sheettitle{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.sheetctx{background:var(--accsoft);border-radius:12px;padding:11px 13px;margin:13px 0 8px}
+.sheetctxlbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accfg);opacity:.85}
+.sheetctxval{font-size:15px;font-weight:700;margin-top:4px}
+.sheetnote{font-size:12.5px;color:var(--accfg);margin-top:6px;font-style:italic}
+.sheetitem{display:flex;align-items:center;gap:13px;width:100%;height:53px;padding:0 6px;font-size:14.5px;font-weight:600;color:var(--fg);border:0;background:transparent;text-align:left;font-family:inherit}
+.sheetitem svg{color:var(--mutfg);flex:none}
+.sheethelp{margin-left:auto;font-size:11px;font-weight:500;color:var(--mutfg)}
+.sheetsep{height:1px;background:var(--line);margin:5px 0}
+.sheetarrow{margin-left:auto;color:var(--mutfg);font-size:19px;font-weight:400}
+.sheettimer{display:flex;align-items:center;gap:12px;background:#f2f2ee;border-radius:13px;padding:11px 13px;margin:2px 0 6px}
+.sttime{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;flex:none;min-width:74px}
+.sttctrls{display:flex;gap:8px;margin-left:auto;flex-wrap:nowrap;align-items:center}
+.sticon{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--fg);flex:none}
+.stbtn{height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--fg);font-family:inherit}
+.ptag{font-size:11px;font-weight:700;letter-spacing:.04em;padding:4px 11px;border-radius:999px}
+.ptag.up{background:color-mix(in oklch,var(--acc) 18%,#fff);color:var(--accfg)}
+.stbtn.use{background:var(--acc);border-color:var(--acc);color:#fff}
+/* history */
+.hitem{padding:15px 0;border-bottom:1px solid var(--line)}
+.hitem.last{border-bottom:0}
+.hitop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.hname{font-size:15px;font-weight:700}
+.hdate{font-size:12px;color:var(--mutfg);margin-top:3px;display:flex;align-items:center;gap:6px}
+.hchev{color:var(--mutfg);flex:none}
+.hdetail{margin-top:12px}
+.hnote{font-size:12.5px;color:var(--accfg);background:var(--accsoft);border-radius:11px;padding:9px 12px;margin-bottom:9px;line-height:1.45}
+.hex{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:baseline;padding:6px 0;font-size:13.5px}
+.hexn{color:var(--mutfg);min-width:0}
+.hexv{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hexv .u{color:var(--mutfg);font-weight:600;font-size:12px;margin-left:3px}
+/* attendance */
+.abignum{font-size:44px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.abiglbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mutfg);margin-top:5px}
+.amonthnav{display:flex;align-items:center;justify-content:space-between;margin:20px 0 12px}
+.amonth{font-size:14px;font-weight:700;text-transform:capitalize}
+.anav{width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--mutfg)}
+.adow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.adow span{text-align:center;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mutfg)}
+.acal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.aday{aspect-ratio:1;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:var(--mutfg)}
+.aday.blank{background:transparent}
+.aday.off{background:#f2f2ee}
+.aday.on{background:var(--acc);color:#fff;font-weight:700}
+.aday.today{box-shadow:inset 0 0 0 2px var(--acc);color:var(--accfg)}
+.ainsights{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+.acardin{border:1px solid var(--line);border-radius:13px;padding:13px 14px;background:#fff}
+.acardin .n{font-size:24px;font-weight:700;letter-spacing:-.01em}
+.acardin .l{font-size:11.5px;color:var(--mutfg);margin-top:3px;line-height:1.35}
+/* progress */
+.pback{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--mutfg);margin-bottom:14px}
+.pseglbl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mutfg);margin:16px 0 8px}
+.pseg{display:flex;gap:7px;flex-wrap:wrap}
+.psegb{height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:600;color:var(--mutfg);font-family:inherit;display:flex;align-items:center}
+.psegb.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.pchart{border:1px solid var(--line);border-radius:15px;background:#fff;padding:14px;margin-top:18px}
+.pactive{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--accsoft);border-radius:13px;padding:12px 14px;margin-top:12px}
+.pactive .d{font-size:13.5px;font-weight:700}
+.pactive .r{font-size:12px;color:var(--accfg)}
+.pactive .big{font-size:19px;font-weight:700;text-align:right}
+.pactive .u{font-size:11px;color:var(--accfg);text-align:right;margin-top:2px}
+.pstats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.pstat{border:1px solid var(--line);border-radius:13px;padding:12px 14px;background:#fff}
+.pstat .l{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mutfg)}
+.pstat .v{font-size:16px;font-weight:700;margin-top:5px}
+.ptrend{display:flex;align-items:center;gap:9px;margin-top:14px}
+.ptrendlbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mutfg)}
+.ptag{font-size:11px;font-weight:700;letter-spacing:.04em;padding:4px 11px;border-radius:999px}
+.ptag.up{background:color-mix(in oklch,var(--acc) 18%,#fff);color:var(--accfg)}
+/* agent insights */
+.ins{border:1px solid var(--line);border-radius:16px;background:#fff;padding:16px 16px 14px;margin-top:14px}
+.inshd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.inskick{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accfg)}
+.insspark{width:16px;height:16px;border-radius:5px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.insstamp{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mutfg)}
+.inshead{font-size:15.5px;font-weight:700;line-height:1.3;margin-top:12px;letter-spacing:-.01em}
+.insbul{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+.insrow{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.45;color:var(--fg)}
+.insico{width:22px;height:22px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.insico.up{background:color-mix(in oklch,var(--acc) 16%,#fff);color:var(--accfg)}
+.insico.flat{background:#f2f2ee;color:var(--mutfg)}
+.insico.warn{background:oklch(0.94 0.05 40);color:oklch(0.5 0.16 40)}
+.inssug{display:flex;align-items:flex-start;gap:9px;border-top:1px solid var(--line);margin-top:14px;padding-top:12px;font-size:13.5px;font-weight:700;line-height:1.4}
+.inssug svg{color:var(--acc);flex:none;margin-top:2px}
+.insregen{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:10px;border:1px solid var(--line);background:#fbfbf9;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fg);margin-top:14px}
+/* overview legend */
+.leg{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.leg.last{border-bottom:0}
+.legname{display:flex;align-items:center;gap:9px;min-width:0}
+.legdot{width:11px;height:11px;border-radius:50%;flex:none}
+.legtxt .n{font-size:13.5px;font-weight:700}
+.legtxt .s{font-size:11.5px;color:var(--mutfg)}
+.legval{text-align:right}
+.legval .pct{font-size:13.5px;font-weight:700;color:var(--accfg)}
+.legval .v{font-size:11.5px;color:var(--mutfg)}
+/* design system */
+.dsband{max-width:1180px;margin:0 auto 26px}
+.dsgrid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.dscard{background:#fbfaf6;border:1px solid #dedbcf;border-radius:16px;padding:22px 24px}
+.dscard.full{grid-column:1/-1}
+.dsh{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8a8578;margin-bottom:16px}
+.swrow{display:flex;gap:12px;flex-wrap:wrap}
+.sw{width:120px}
+.swchip{height:56px;border-radius:11px;border:1px solid rgba(0,0,0,.08)}
+.swname{font-size:12px;font-weight:700;margin-top:7px}
+.swhex{font-size:11px;color:#8a8578}
+.dstype div{margin-bottom:12px;line-height:1.1}
+.dstype .lbl{font-size:11px;color:#8a8578;font-weight:600;margin-bottom:2px;letter-spacing:0;text-transform:none}
+.principle{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #e4e1d5;font-size:14px;color:#4a463d;line-height:1.5}
+.principle:last-child{border-bottom:0}
+.principle b{color:#1a1a17}
+.pchk{width:22px;height:22px;border-radius:7px;background:#1a1a17;color:#fbfaf6;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.compdemo{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.demolbl{font-size:11px;color:#8a8578;width:100%;font-weight:600}
+.nbarhint{font-size:11px;color:var(--mutfg);line-height:1.45;margin-top:6px;padding-left:10px;border-left:2px solid var(--accsoft)}
+</style>
+</helmet>
+<div class="studio" id="review-root">
+
+<div id="3a" class="dsband">
+<span class="turnbadge">3a · Design System</span>
+<div class="htitle" style="margin-top:15px">Sistema de la app</div>
+<div class="hsub">Los tokens, la escala tipográfica, los componentes y los principios que gobiernan el rediseño. Todo deriva de tu paleta original — solo bajamos el chroma del verde y reservamos su uso para estado. Esto es lo que le pasás a un dev para que cualquier pantalla nueva salga consistente.</div>
+</div>
+<div class="dsgrid">
+<div class="dscard">
+<div class="dsh mono">Color</div>
+<div class="swrow">
+<div class="sw"><div class="swchip" style="background:#fbfbf9"></div><div class="swname">Fondo</div><div class="swhex mono">#fbfbf9</div></div>
+<div class="sw"><div class="swchip" style="background:oklch(0.18 0.02 260)"></div><div class="swname">Texto</div><div class="swhex mono">oklch(.18 .02 260)</div></div>
+<div class="sw"><div class="swchip" style="background:oklch(0.48 0.02 260)"></div><div class="swname">Texto suave</div><div class="swhex mono">oklch(.48 .02 260)</div></div>
+<div class="sw"><div class="swchip" style="background:oklch(0.7 0.13 145)"></div><div class="swname">Acento</div><div class="swhex mono">oklch(.70 .13 145)</div></div>
+<div class="sw"><div class="swchip" style="background:color-mix(in oklch,oklch(0.7 0.13 145) 15%,#fff)"></div><div class="swname">Acento suave</div><div class="swhex mono">acento @15%</div></div>
+<div class="sw"><div class="swchip" style="background:oklch(0.9 0.006 90)"></div><div class="swname">Línea</div><div class="swhex mono">oklch(.90 .006 90)</div></div>
+</div>
+</div>
+<div class="dscard">
+<div class="dsh mono">Tipografía · Space Grotesk</div>
+<div class="dstype">
+<div><div class="dstype-lbl swhex" style="font-family:'Space Mono'">H1 · 24/700 · -2% — título de pantalla</div><div style="font-size:24px;font-weight:700;letter-spacing:-.02em">Pecho y tríceps</div></div>
+<div><div class="dstype-lbl swhex" style="font-family:'Space Mono'">Body · 14/700 — nombre de ejercicio</div><div style="font-size:14px;font-weight:700">Press banca</div></div>
+<div><div class="dstype-lbl swhex" style="font-family:'Space Mono'">Meta · 12.5/400 — objetivo, fecha</div><div style="font-size:12.5px;color:oklch(0.48 0.02 260)">obj 8 · 60 kg</div></div>
+<div><div class="dstype-lbl swhex" style="font-family:'Space Mono'">Micro-label · 10-11/700 · +10% · MAYÚS</div><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:oklch(0.48 0.02 260)">Serie 3</div></div>
+</div>
+</div>
+<div class="dscard full">
+<div class="dsh mono">Componentes</div>
+<div class="napp" style="background:transparent"><div class="compdemo">
+<span class="demolbl mono">Serie · confirmada / activa / sugerida — botón primario — chips — segmentado — celda de día</span>
+<span class="serpill done">Serie 1</span><span class="serpill cur">Serie 3</span>
+<input class="bigin done" value="60" style="width:70px;height:44px"><input class="bigin active" value="22" style="width:70px;height:44px"><input class="bigin ghost" value="15" style="width:70px;height:44px">
+<button class="nsavebtn" style="flex:none;width:auto;padding:0 22px;height:46px">Guardar</button>
+<span class="nchip">Buen día</span>
+<button class="psegb on">Peso</button><button class="psegb">Volumen</button>
+<span class="aday on" style="width:38px;height:38px">8</span><span class="aday off" style="width:38px;height:38px">9</span>
+<span class="ptag up">↑ Subiendo</span>
+</div></div>
+</div>
+<div class="dscard full">
+<div class="dsh mono">Principios</div>
+<div class="principle"><span class="pchk">1</span><div><b>Menos cajas.</b> Separación por espacio y hairlines de bajo contraste (1px). Borde grueso + sombra solo en la acción primaria.</div></div>
+<div class="principle"><span class="pchk">2</span><div><b>El verde significa estado.</b> Acento reservado a lo activo, confirmado y en progreso — nunca como fondo decorativo.</div></div>
+<div class="principle"><span class="pchk">3</span><div><b>Una sola jerarquía.</b> Mayúsculas solo en micro-labels; títulos en caja normal y grandes.</div></div>
+<div class="principle"><span class="pchk">4</span><div><b>Targets táctiles ≥44px.</b> Campos, botones de ícono y celdas dimensionados para usarse con manos sudadas.</div></div>
+<div class="principle"><span class="pchk">5</span><div><b>Radios y ritmo.</b> 10-13px en controles, 15-16px en tarjetas, 999px en pills. Gap base de 8-12px.</div></div>
+</div>
+</div>
+
+<div class="turndiv"></div>
+
+<div id="2a" class="head" style="margin-bottom:22px">
+<span class="turnbadge">2a · Propuesta · app completa</span>
+<div class="htitle" style="margin-top:15px">Misma paleta, menos cajas</div>
+<div class="hsub">Las pantallas principales rediseñadas en un solo lenguaje, sin cambiar tu tipografía ni tu verde. <b>Registro</b> respeta tu agrupación por serie (un bloque = circuito de N series × 2-3 ejercicios); <b>historial</b>, <b>asistencia</b>, <b>progreso por ejercicio</b> y <b>progreso general</b> (con el análisis del agente) siguen los mismos tokens y principios del sistema de abajo. Deslizá la fila de teléfonos para verlas todas.</div>
+</div>
+<div class="stage wide">
+<div class="phonecol">
+<div class="phonelabel mono">Propuesta — registro (móvil)</div>
+<div class="phone"><div class="screen tall"><div class="napp">
+<div class="nhd">
+<div class="fx ac gap10"><div class="nmark">GA</div><div class="nbrand">Gym App</div></div>
+<div class="niconbtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg></div>
+</div>
+<div class="nbody">
+<div class="nkick">Hoy · Día 1</div>
+<div class="nh1">Pecho y tríceps</div>
+<div class="nmeta">Empuje · 3 bloques · 9 series</div>
+<div class="nbar"><span style="width:44%"></span></div>
+<div class="nbarlbl">4 de 9 series confirmadas</div>
+<div class="nbarhint">Los pesos de la última sesión se sugieren en gris; avanzás campo por campo con el botón “Siguiente” del teclado y cada campo que dejás atrás queda confirmado (✓). El activo va resaltado.</div>
+
+<div class="blk">
+<div class="blkhd"><div><div class="blkname">Circuito A · Pecho</div><div class="blksub">3 series × 3 ejercicios · en circuito</div></div><div class="blkprog">2/3</div></div>
+
+<div class="ser done">
+<div class="serhd"><span class="serpill done">Serie 1</span><span class="sertag">Completada</span></div>
+<div class="exline"><div class="exn"><span class="exntop">Press banca</span><span class="ext">obj 8 · 60 kg</span></div><div class="val">60</div></div>
+<div class="exline"><div class="exn"><span class="exntop">Press inclinado</span><span class="ext">obj 10 · 22 kg</span></div><div class="val">22</div></div>
+<div class="exline last"><div class="exn"><span class="exntop">Aperturas en polea</span><span class="ext">obj 12 · 15 kg</span></div><div class="val">15</div></div>
+</div>
+
+<div class="ser done">
+<div class="serhd"><span class="serpill done">Serie 2</span><span class="sertag">Completada</span></div>
+<div class="exline"><div class="exn"><span class="exntop">Press banca</span><span class="ext">obj 8 · 60 kg</span></div><div class="val">62,5</div></div>
+<div class="exline"><div class="exn"><span class="exntop">Press inclinado</span><span class="ext">obj 10 · 22 kg</span></div><div class="val">22</div></div>
+<div class="exline last"><div class="exn"><span class="exntop">Aperturas en polea</span><span class="ext">obj 12 · 15 kg</span></div><div class="val">15</div></div>
+</div>
+
+<div class="ser cur">
+<div class="serhd"><span class="serpill cur">Serie 3</span><span class="sertag curt">En curso</span><button class="restbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>Descanso 90s</button></div>
+<div class="exline"><div class="exn"><span class="exntop">Press banca <span class="exchev">›</span></span><span class="ext">obj 8 · 60 kg</span></div><div class="setctl"><input class="bigin done" value="60"><span class="stcol ok"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></div></div>
+<div class="exline"><div class="exn"><span class="exntop">Press inclinado <span class="exchev">›</span></span><span class="ext">obj 10 · 22 kg · activo</span></div><div class="setctl"><input class="bigin active" value="22"><span class="stcol"><span class="dotcue"></span></span></div></div>
+<div class="exline last"><div class="exn"><span class="exntop">Aperturas en polea <span class="exchev">›</span></span><span class="ext">obj 12 · 15 kg · sugerido</span></div><div class="setctl"><input class="bigin ghost" value="15"><span class="stcol"></span></div></div>
+</div>
+</div>
+
+<div class="ncol"><div><div class="ncolname">Circuito B · Tríceps</div><div class="ncolsub">3 series × 2 ejercicios · sin registrar</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--mutfg)"><path d="M6 9l6 6 6-6"/></svg></div>
+
+<button class="naddday"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar ejercicio del día</button>
+
+<div class="nnf">
+<div class="nnflbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Nota de la sesión</div>
+<div class="nchips"><span class="nchip">Buen día</span><span class="nchip">Cansado</span><span class="nchip">Poco tiempo</span><span class="nchip">Lesión leve</span></div>
+<div class="nnfarea">Cómo te sentiste, ajustes...</div>
+</div>
+
+<div class="nsecwrap">
+<div class="ncol"><div><div class="ncolname">Asistencia</div><div class="ncolsub">8 días este mes</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--mutfg)"><path d="M6 9l6 6 6-6"/></svg></div>
+<div class="ncol" style="border-bottom:0"><div><div class="ncolname">Historial</div><div class="ncolsub">Últimas 10 sesiones</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--mutfg)"><path d="M6 9l6 6 6-6"/></svg></div>
+</div>
+</div>
+<div class="nsave">
+<div class="nsaveinfo"><div class="nsavenum">4/9</div><div class="nsavesub">series</div></div>
+<button class="nsavebtn">Guardar sesión</button>
+</div>
+</div></div></div>
+</div>
+<div class="phonecol">
+<div class="phonelabel mono">Menú del ejercicio — ejercicio por tiempo</div>
+<div class="phone"><div class="screen"><div class="napp"><div class="scrim">
+<div class="scrimhint"><div class="nkick">Hoy · Día 1</div><div class="nh1" style="opacity:.5">Pecho y tríceps</div><div class="nmeta" style="opacity:.45;margin-top:4px">Circuito A · Serie 3 en curso</div></div>
+<div class="scrimdim"></div>
+<div class="sheet">
+<div class="sheetgrip"></div>
+<div class="sheettitle">Plancha</div>
+<div class="sheetctx">
+<div class="sheetctxlbl">Última vez · hace 3 días</div>
+<div class="sheetctxval">0:45 · 0:50 · 0:50</div>
+<div class="sheetnote">“aguanté 5s más la última”</div>
+</div>
+<div class="sheetacts">
+<button class="sheetitem"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></svg>Cambiar ejercicio</button>
+<button class="sheetitem" style="height:44px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>Cronómetro<span class="sheethelp">en curso</span></button>
+<div class="sheettimer"><div class="sttime mono">00:38</div><div class="sttctrls"><button class="sticon" aria-label="Pausar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 4v16M15 4v16"/></svg></button><button class="sticon" aria-label="Reiniciar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v6h6M3.5 9a9 9 0 112 6.5"/></svg></button><button class="stbtn use">Usar</button></div></div>
+<button class="sheetitem"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Agregar nota</button>
+<div class="sheetsep"></div>
+<button class="sheetitem"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg>Ver progreso / historial<span class="sheetarrow">›</span></button>
+</div>
+</div>
+</div></div></div></div>
+</div>
+<div class="phonecol">
+<div class="phonelabel mono">Historial de sesiones</div>
+<div class="phone"><div class="screen tall"><div class="napp">
+<div class="nhd"><div class="fx ac gap10"><div class="nmark">GA</div><div class="nbrand">Historial</div></div><div class="niconbtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div></div>
+<div class="nbody">
+<div class="nkick">Últimas sesiones</div>
+<div class="nh1">Historial</div>
+<div class="nmeta">Tocá una sesión para ver los registros</div>
+<div style="margin-top:12px">
+<div class="hitem">
+<div class="hitop"><div><div class="hname">Día 1 · Pecho y tríceps</div><div class="hdate"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Hoy · 14:20</div></div><svg class="hchev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="transform:rotate(180deg)"><path d="M6 9l6 6 6-6"/></svg></div>
+<div class="hdetail">
+<div class="hnote">Buen día · subí a 62,5 en banca</div>
+<div class="hex"><span class="hexn">Press banca</span><span class="hexv">60 · 62,5 · 62,5<span class="u">kg</span></span></div>
+<div class="hex"><span class="hexn">Press inclinado</span><span class="hexv">22 · 22 · 22<span class="u">kg</span></span></div>
+<div class="hex"><span class="hexn">Aperturas en polea</span><span class="hexv">15 · 15 · 15<span class="u">kg</span></span></div>
+<div class="hex"><span class="hexn">Fondos</span><span class="hexv">10 · 10<span class="u">reps</span></span></div>
+</div>
+</div>
+<div class="hitem"><div class="hitop"><div><div class="hname">Día 3 · Pierna</div><div class="hdate"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Anteayer · 19:05</div></div><svg class="hchev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div></div>
+<div class="hitem"><div class="hitop"><div><div class="hname">Día 2 · Espalda y bíceps</div><div class="hdate"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Hace 4 días</div></div><svg class="hchev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div></div>
+<div class="hitem last"><div class="hitop"><div><div class="hname">Día 1 · Pecho y tríceps</div><div class="hdate"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Hace 6 días</div></div><svg class="hchev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div></div>
+</div>
+</div>
+</div></div></div>
+</div>
+
+<div class="phonecol">
+<div class="phonelabel mono">Asistencia del mes</div>
+<div class="phone"><div class="screen tall"><div class="napp">
+<div class="nhd"><div class="fx ac gap10"><div class="nmark">GA</div><div class="nbrand">Asistencia</div></div><div class="niconbtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div></div>
+<div class="nbody">
+<div class="nkick">Este mes</div>
+<div class="fx ac jb"><div><div class="abignum">8</div><div class="abiglbl">días entrenados</div></div><div style="text-align:right"><div class="nh1" style="margin:0">67%</div><div class="nmeta">de tu meta (12)</div></div></div>
+<div class="amonthnav"><button class="anav"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button><div class="amonth">Julio 2026</div><button class="anav"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button></div>
+<div class="adow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+<div class="acal">
+<span class="aday blank"></span><span class="aday off">1</span><span class="aday on">2</span><span class="aday off">3</span><span class="aday off">4</span><span class="aday on">5</span><span class="aday off">6</span>
+<span class="aday off">7</span><span class="aday on">8</span><span class="aday off">9</span><span class="aday on">10</span><span class="aday off">11</span><span class="aday off">12</span><span class="aday on">13</span>
+<span class="aday off">14</span><span class="aday on">15</span><span class="aday off">16</span><span class="aday on">17</span><span class="aday off">18</span><span class="aday off">19</span><span class="aday off">20</span>
+<span class="aday off">21</span><span class="aday on">22</span><span class="aday today">23</span><span class="aday off">24</span><span class="aday off">25</span><span class="aday off">26</span><span class="aday off">27</span>
+<span class="aday off">28</span><span class="aday off">29</span><span class="aday off">30</span><span class="aday off">31</span>
+</div>
+<div class="ainsights">
+<div class="acardin"><div class="n">3</div><div class="l">semanas seguidas activo</div></div>
+<div class="acardin"><div class="n">2,4</div><div class="l">sesiones / semana (prom.)</div></div>
+</div>
+</div>
+</div></div></div>
+</div>
+
+<div class="phonecol">
+<div class="phonelabel mono">Progreso por ejercicio</div>
+<div class="phone"><div class="screen tall"><div class="napp">
+<div class="nhd"><div class="fx ac gap10"><div class="nmark">GA</div><div class="nbrand">Progreso</div></div><div class="niconbtn"></div></div>
+<div class="nbody">
+<div class="pback"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>Volver</div>
+<div class="nh1" style="margin:0">Press banca</div>
+<div class="nmeta">Peso · 24 sesiones · última hoy</div>
+<div class="pseglbl">Métrica</div>
+<div class="pseg"><button class="psegb on">Peso máx</button><button class="psegb">Volumen</button><button class="psegb">Reps</button></div>
+<div class="pseglbl">Rango</div>
+<div class="pseg"><button class="psegb">3m</button><button class="psegb on">6m</button><button class="psegb">1a</button><button class="psegb">Todo</button></div>
+<div class="pchart">
+<svg viewBox="0 0 320 180" style="width:100%;height:auto;overflow:visible">
+<line x1="16" x2="304" y1="152" y2="152" stroke="var(--line)" stroke-dasharray="4 4"/>
+<line x1="16" x2="304" y1="20" y2="20" stroke="var(--line)" stroke-dasharray="4 4"/>
+<polyline points="16,120 64,112 112,96 160,98 208,72 256,58 288,40" fill="none" stroke="var(--acc)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="16" cy="120" r="4" fill="#fff" stroke="var(--acc)" stroke-width="3"/>
+<circle cx="64" cy="112" r="4" fill="#fff" stroke="var(--acc)" stroke-width="3"/>
+<circle cx="112" cy="96" r="4" fill="#fff" stroke="var(--acc)" stroke-width="3"/>
+<circle cx="160" cy="98" r="4" fill="#fff" stroke="var(--acc)" stroke-width="3"/>
+<circle cx="208" cy="72" r="4" fill="#fff" stroke="var(--acc)" stroke-width="3"/>
+<circle cx="256" cy="58" r="5.5" fill="var(--acc)" stroke="#fff" stroke-width="3"/>
+<circle cx="288" cy="40" r="4" fill="#fff" stroke="var(--acc)" stroke-width="3"/>
+<text x="16" y="14" fill="var(--mutfg)" font-size="10" font-weight="700">65 kg</text>
+<text x="16" y="146" fill="var(--mutfg)" font-size="10" font-weight="700">50 kg</text>
+<text x="16" y="172" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="start">feb</text>
+<text x="160" y="172" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="middle">abr</text>
+<text x="304" y="172" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="end">jul</text>
+</svg>
+</div>
+<div class="pactive"><div><div class="d">12 may 2026</div><div class="r">Día 1 · Pecho y tríceps</div></div><div><div class="big">62,5 kg</div><div class="u">Peso máx</div></div></div>
+<div class="pstats">
+<div class="pstat"><div class="l">Último valor</div><div class="v">62,5 kg</div></div>
+<div class="pstat"><div class="l">Récord</div><div class="v">62,5 kg</div></div>
+<div class="pstat"><div class="l">Última mejora</div><div class="v">12 may</div></div>
+<div class="pstat"><div class="l">Sin mejorar</div><div class="v">2 sesiones</div></div>
+</div>
+<div class="ptrend"><span class="ptrendlbl">Tendencia</span><span class="ptag up">↑ Subiendo</span></div>
+</div>
+</div></div></div>
+</div>
+
+<div class="phonecol">
+<div class="phonelabel mono">Progreso general + análisis del agente</div>
+<div class="phone"><div class="screen tall"><div class="napp">
+<div class="nhd"><div class="fx ac gap10"><div class="nmark">GA</div><div class="nbrand">Progreso</div></div><div class="niconbtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg></div></div>
+<div class="nbody">
+<div class="pback"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>Volver</div>
+<div class="nh1" style="margin:0">Progreso</div>
+<div class="nmeta">Comparás cambios porcentuales por período</div>
+
+<div class="ins">
+<div class="inshd"><div class="inskick"><span class="insspark"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg></span>Insights · últimos 90 días</div><div class="insstamp">hace 2 h</div></div>
+<div class="inshead">Buen mes de empuje: tu press banca subió sostenido, pero la espalda quedó estancada.</div>
+<div class="insbul">
+<div class="insrow"><span class="insico up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg></span><span>Press banca +8% en 6 semanas — tu mejor progresión.</span></div>
+<div class="insrow"><span class="insico flat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></span><span>Remo con barra sin cambios hace 5 sesiones — meseta.</span></div>
+<div class="insrow"><span class="insico warn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></span><span>Faltaste 2 de las últimas 3 sesiones de pierna.</span></div>
+</div>
+<div class="inssug"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Subí 2,5 kg en remo esta semana y priorizá no saltarte pierna.</span></div>
+<button class="insregen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 019-9 9 9 0 016.7 3L21 8M21 3v5h-5M21 12a9 9 0 01-9 9 9 9 0 01-6.7-3L3 16M3 21v-5h5"/></svg>Regenerar</button>
+</div>
+
+<div class="pseglbl">Rutina</div>
+<div class="pseg"><button class="psegb on">Todas</button><button class="psegb">Día 1</button><button class="psegb">Día 2</button><button class="psegb">Día 3</button></div>
+<div class="pseglbl">Rango</div>
+<div class="pseg"><button class="psegb">3m</button><button class="psegb on">6m</button><button class="psegb">1a</button><button class="psegb">Todo</button></div>
+<div class="pseglbl">Métrica</div>
+<div class="pseg"><button class="psegb on">Mejor registro</button><button class="psegb">Volumen</button></div>
+<div class="pseglbl">Ejercicios</div>
+<div class="pseg"><button class="psegb">Todos</button><button class="psegb">Ninguno</button><button class="psegb on">Press banca</button><button class="psegb on">Remo con barra</button><button class="psegb on">Sentadilla</button><button class="psegb" style="opacity:.55">Aperturas</button><button class="psegb" style="opacity:.55">Fondos</button></div>
+
+<div class="pchart">
+<svg viewBox="0 0 320 180" style="width:100%;height:auto;overflow:visible">
+<line x1="30" x2="304" y1="152" y2="152" stroke="var(--line)" stroke-dasharray="4 4"/>
+<line x1="30" x2="304" y1="86" y2="86" stroke="var(--line)"/>
+<line x1="30" x2="304" y1="20" y2="20" stroke="var(--line)" stroke-dasharray="4 4"/>
+<polyline points="30,120 92,104 156,84 220,56 288,34" fill="none" stroke="var(--acc)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="30,110 92,108 156,106 220,104 288,102" fill="none" stroke="oklch(0.6 0.02 260)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="30,124 92,118 156,126 220,120 288,116" fill="none" stroke="oklch(0.7 0.13 60)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.85"/>
+<circle cx="288" cy="34" r="5.5" fill="var(--acc)" stroke="#fff" stroke-width="3"/>
+<circle cx="288" cy="102" r="4" fill="#fff" stroke="oklch(0.6 0.02 260)" stroke-width="3"/>
+<circle cx="288" cy="116" r="4" fill="#fff" stroke="oklch(0.7 0.13 60)" stroke-width="3"/>
+<text x="26" y="24" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="end">+12%</text>
+<text x="26" y="90" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="end">0%</text>
+<text x="30" y="172" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="start">feb</text>
+<text x="288" y="172" fill="var(--mutfg)" font-size="10" font-weight="700" text-anchor="end">jul</text>
+</svg>
+</div>
+
+<div class="pseglbl">Leyenda · tocá para resaltar</div>
+<div style="border:1px solid var(--line);border-radius:14px;padding:2px 14px;background:#fff">
+<div class="leg"><div class="legname"><span class="legdot" style="background:var(--acc)"></span><div class="legtxt"><div class="n">Press banca</div><div class="s">24 sesiones visibles</div></div></div><div class="legval"><div class="pct">+8%</div><div class="v">62,5 kg</div></div></div>
+<div class="leg"><div class="legname"><span class="legdot" style="background:oklch(0.6 0.02 260)"></span><div class="legtxt"><div class="n">Remo con barra</div><div class="s">18 sesiones visibles</div></div></div><div class="legval"><div class="pct" style="color:var(--mutfg)">+1%</div><div class="v">50 kg</div></div></div>
+<div class="leg last"><div class="legname"><span class="legdot" style="background:oklch(0.7 0.13 60)"></span><div class="legtxt"><div class="n">Sentadilla</div><div class="s">15 sesiones visibles</div></div></div><div class="legval"><div class="pct">+4%</div><div class="v">80 kg</div></div></div>
+</div>
+</div>
+</div></div></div>
+</div>
+
+<div class="findcol">
+<div class="fgroup">
+<div class="fgh mono">Qué resuelve</div>
+<div class="solve"><span class="sv">✓</span><div><b>1 · Un solo lenguaje.</b> Se va la mezcla glass + brutalista; todo tokenizado y consistente, y el header usa tus tokens (funciona en modo oscuro).</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>2 · Verde con criterio.</b> Chroma más bajo y reservado a estado/progreso — serie actual, barra, botón guardar — no como fondo de todo.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>3 · Jerarquía tipográfica.</b> Mayúsculas solo en micro-labels; los títulos van en caja normal y más grandes, así el ojo sabe qué leer primero.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>4 · Menos cajas.</b> Separación por espacio y hairlines de bajo contraste; el borde/sombra fuerte queda solo en “Guardar sesión”.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>5 · Registro primero.</b> En móvil arranca la sesión; asistencia e historial quedan colapsados abajo como secundarios.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>6 · Targets grandes.</b> Filas de 52px, campos de peso de 46px y guardar de 52px — todo cómodo con manos sudadas.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>7 · Todo en el sheet del ejercicio.</b> Tocar el nombre (con ›) abre un menú con la nota previa arriba, luego cambiar ejercicio, cronómetro (en por-tiempo, con botón <b>Usar</b> que pasa el tiempo al campo), agregar nota, y ver progreso/historial al final porque navega fuera. Cero íconos repetidos en cada fila del circuito.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>8 · Progreso real.</b> Cuenta campos <b>confirmados</b>, no campos con texto — clave porque los pesos vienen precargados. Como te movés con “Siguiente” del teclado, avanzar de campo confirma el anterior: cero taps extra. Barra fija con el conteo.</div></div>
+<div class="solve"><span class="sv">✓</span><div><b>9 · Base intacta.</b> Borrador, timer de descanso, swap y peso por serie se conservan tal cual — solo cambia la piel.</div></div>
+</div>
+</div>
+</div>
+
+<div class="turndiv"></div>
+
+<div id="1a" class="head">
+<span class="turnbadge">1a · Revisión</span>
+<div class="kick mono" style="margin-top:15px">Revisión de diseño · pantalla de registro · móvil</div>
+<div class="htitle">¿Se ve anticuado? ¿Es funcional?</div>
+<div class="hsub">Recreación fiel de la pantalla actual de registro de entrenamiento con tus tokens y estilos exactos (nada cambiado). Los pines marcan puntos concretos; pasá el cursor sobre un hallazgo para resaltarlo en la maqueta.</div>
+<div class="verdicts">
+<div class="vpill">
+<div class="vq mono">¿Se ve anticuado?</div>
+<div class="va"><span class="dot d-warn"></span>En parte — sí, por el envoltorio</div>
+<div class="vr">No es feo, pero mezcla dos estéticas (header glass suave + cuerpo neobrutalista) y abusa de mayúsculas, bordes negros gruesos y un lima muy saturado. Esa combinación es la que lee como “plantilla vieja”.</div>
+</div>
+<div class="vpill">
+<div class="vq mono">¿Es funcional?</div>
+<div class="va"><span class="dot d-good"></span>Sí — más de lo que aparenta</div>
+<div class="vr">Debajo es sólido (borrador guardado, wake-lock, peso por serie). La fricción real es de móvil: la tarea principal queda abajo, los inputs son chicos y las acciones potentes están escondidas.</div>
+</div>
+</div>
+</div>
+
+<div class="stage">
+<div class="phonecol">
+<div class="phonelabel mono">Pantalla actual — recreada</div>
+<div class="phone"><div class="screen"><div class="app">
+<div class="ah">
+<div class="fx ac gap10">
+<div class="albox"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg></div>
+<div><div class="albrand">Gym App</div><div class="alsub">Rutina y progreso</div></div>
+</div>
+<div class="fx ac">
+<div class="aicn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg></div>
+<div class="aicn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></div>
+</div>
+<span class="pin" data-n="1">1</span>
+</div>
+<div class="appbody">
+<div class="hero">
+<span class="pin" data-n="2">2</span>
+<div class="badge-acc">Gym App</div>
+<h1 class="hh1">Entrenamiento<br>de hoy</h1>
+<div class="herofoot">
+<div><div class="lbl">Rutina seleccionada</div><div class="strong">Día 1 · Pecho y tríceps</div></div>
+<div class="tc"><div class="bignum">8</div><div class="lbl">días este mes</div></div>
+</div>
+</div>
+
+<div class="card">
+<div class="chdr"><div class="row-between"><div><div class="ctitle">Asistencia</div><div class="cdesc">Sesiones registradas del mes</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div></div>
+</div>
+
+<div class="card brutal">
+<span class="pin" data-n="4">4</span>
+<div class="chdr bb"><div class="ctitle up">Rutinas</div></div>
+<div class="rlist">
+<div class="ritem sel"><div class="rtext"><div class="rname">Día 1 — Pecho y tríceps</div><div class="rsum">Empuje · 5 ejercicios</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+<div class="ritem"><div class="rtext"><div class="rname">Día 2 — Espalda y bíceps</div><div class="rsum">Tracción · 5 ejercicios</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+<div class="ritem"><div class="rtext"><div class="rname">Día 3 — Pierna</div><div class="rsum">Cuádriceps y femoral · 6 ejercicios</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></div>
+</div>
+</div>
+
+<div class="divider-pin"><span class="pin mid" data-n="5">5</span></div>
+
+<div class="card brutal">
+<div class="chdr bb"><div class="row-between"><div><div class="ctitle">Día 1 · Pecho y tríceps</div><div class="cdesc">Empuje · 5 ejercicios</div></div><span class="badge-acc" style="background:#fff;color:var(--fg)">Hoy</span></div></div>
+<div style="padding:14px 16px">
+<div class="sect" style="position:relative"><span class="pin" data-n="3" style="top:-8px;right:-6px">3</span><span class="sectn">Pecho</span></div>
+
+<div class="grp">
+<div class="gtrig"><div class="gname">Press banca</div><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="transform:rotate(180deg)"><path d="M6 9l6 6 6-6"/></svg></div>
+<div class="prevnote"><p><b style="color:var(--fg)">Press banca</b> · hace 3 días: subí a 62,5 la última serie</p></div>
+<div class="addex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar ejercicio del día</div>
+<div class="serie">Serie 1</div>
+<div class="exrow">
+<span class="pin" data-n="6" style="top:-8px;right:2px">6</span>
+<div class="exleft" style="position:relative">
+<span class="pin" data-n="7" style="top:-8px;left:-8px">7</span>
+<span class="icbtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></svg></span>
+<div><div class="exname">Press banca <span style="font-weight:400;color:var(--mutfg)">›</span></div><div class="extar">4×8 · 60 kg</div></div>
+</div>
+<div class="exright">
+<span class="icbtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></span>
+<input class="winput" placeholder="kg" value="60">
+</div>
+</div>
+<div class="serie">Serie 2</div>
+<div class="exrow">
+<div class="exleft">
+<span class="icbtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></svg></span>
+<div><div class="exname">Press banca <span style="font-weight:400;color:var(--mutfg)">›</span></div><div class="extar">4×8 · 60 kg</div></div>
+</div>
+<div class="exright">
+<span class="icbtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></span>
+<input class="winput" placeholder="kg" value="62.5">
+</div>
+</div>
+</div>
+
+<div class="grp">
+<div class="gtrig"><div class="gname">Aperturas en polea</div><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+</div>
+
+<div class="notelbl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Nota</div>
+<div class="chips"><span class="chip">Buen día</span><span class="chip">Cansado</span><span class="chip">Sin tiempo</span></div>
+<div style="position:relative"><span class="pin pos" data-n="9" style="top:-8px;left:-8px">9</span><div class="notearea">Cómo te sentiste, ajustes...</div></div>
+
+<button class="savebtn"><span class="pin" data-n="8" style="top:-13px;right:-8px">8</span>Guardar sesión</button>
+</div>
+</div>
+
+<div class="card brutal">
+<div class="chdr bb"><div class="row-between"><div><div class="ctitle up">Historial</div><div class="cdesc">Últimas 10 sesiones</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div></div>
+</div>
+</div>
+</div></div></div>
+</div>
+
+<div class="findcol">
+<div class="fgroup">
+<div class="fgh mono">Visual — por qué lee anticuado</div>
+<div class="find" data-n="1">
+<div class="fnum">1</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-v">Visual</span><span class="ftitle">Dos lenguajes visuales en conflicto</span></div>
+<div class="fwhy">El header usa glassmorphism suave (blur, esquinas 2xl, sombras difusas) mientras el cuerpo es neobrutalista (bordes negros de 2px, sombras duras 3px, mayúsculas). Además el header hardcodea <span class="mono">slate-950 / slate-500 / bg-white/80</span> ignorando tus tokens, así que ni siquiera responde bien al modo oscuro.</div>
+<div class="fsug"><b>Sugerencia:</b> elegir un solo lenguaje (tu decisión: mantenerlo) y que el header use los tokens en vez de colores fijos.</div></div>
+</div>
+<div class="find" data-n="2">
+<div class="fnum">2</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-v">Visual</span><span class="ftitle">Acento lima de saturación muy alta</span></div>
+<div class="fwhy">El verde <span class="mono">oklch(0.85 0.2 145)</span> como relleno sólido de chips “Serie”, badges y botón es la señal cromática más “plantilla 2021 / IA”. Encima el texto oscuro sobre lima tiene contraste flojo.</div>
+<div class="fsug"><b>Sugerencia:</b> bajar el chroma (~0.12) o reservar el lima solo para estados/acentos, no como fondo de tantos elementos.</div></div>
+</div>
+<div class="find" data-n="3">
+<div class="fnum">3</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-v">Visual</span><span class="ftitle">Mayúsculas + tracking en todos los niveles</span></div>
+<div class="fwhy">Título, labels, secciones, chips de serie, badges: casi todo va en mayúsculas con letter-spacing. Cuando todo grita, nada guía la vista — la jerarquía se aplana.</div>
+<div class="fsug"><b>Sugerencia:</b> reservar mayúsculas para 1 nivel (p.ej. micro-labels) y dejar títulos en caja normal.</div></div>
+</div>
+<div class="find" data-n="4">
+<div class="fnum">4</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-v">Visual</span><span class="ftitle">Bordes negros de 2px + sombras duras por todos lados</span></div>
+<div class="fwhy">Cada tarjeta, input y chip lleva borde casi negro de 2px y varias sombras <span class="mono">3px 3px 0</span>. El resultado es una grilla muy pesada y ruidosa para una UI que en el fondo es de datos/tablas.</div>
+<div class="fsug"><b>Sugerencia:</b> hairlines de bajo contraste para contenedores y reservar el borde grueso para lo interactivo.</div></div>
+</div>
+</div>
+
+<div class="fgroup">
+<div class="fgh mono">Funcional — fricción en móvil</div>
+<div class="find" data-n="5">
+<div class="fnum">5</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-f">Funcional</span><span class="ftitle">La tarea principal queda debajo del pliegue</span></div>
+<div class="fwhy">En móvil todo se apila: hero → Asistencia → Rutinas → <b>recién ahí</b> el panel de registro. Hay que scrollear pasando calendario y lista de rutinas para llegar a lo único que hacés en el gimnasio: cargar las series.</div>
+<div class="fsug"><b>Sugerencia:</b> en móvil, registro primero; asistencia/historial colapsados abajo.</div></div>
+</div>
+<div class="find" data-n="6">
+<div class="fnum">6</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-f">Funcional</span><span class="ftitle">Inputs y acciones por debajo del mínimo táctil</span></div>
+<div class="fwhy">El input de peso mide 32px de alto (<span class="mono">h-8</span>) y los íconos de swap/nota/timer usan 14px dentro de blancos de 24px — todos bajo el mínimo de 44px. En pleno entreno, con manos sudadas, cuesta acertar.</div>
+<div class="fsug"><b>Sugerencia:</b> inputs y botones de icono a 44px mínimo.</div></div>
+</div>
+<div class="find" data-n="7">
+<div class="fnum">7</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-f">Funcional</span><span class="ftitle">Funciones potentes escondidas</span></div>
+<div class="fwhy">Intercambiar ejercicio, nota rápida, timer y “agregar ejercicio del día” son capacidades reales, pero viven en íconos fantasma de baja affordance. Un usuario nuevo no sabe que existen.</div>
+<div class="fsug"><b>Sugerencia:</b> subir el contraste de estos controles o mostrarlos con label al menos la primera vez.</div></div>
+</div>
+<div class="find" data-n="8">
+<div class="fnum">8</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-f">Funcional</span><span class="ftitle">Guardar vive al final de una lista larga</span></div>
+<div class="fwhy">“Guardar sesión” está tras todos los colapsables, sin guardado fijo ni indicador de progreso (cuántas series cargadas). En una sesión larga es fácil perder de vista el estado.</div>
+<div class="fsug"><b>Sugerencia:</b> barra de guardado fija con progreso “X/Y series”.</div></div>
+</div>
+</div>
+
+<div class="fgroup">
+<div class="fgh mono">Lo que sí funciona</div>
+<div class="find" data-n="9">
+<div class="fnum pos">9</div>
+<div class="fbody"><div class="ftop"><span class="tag tag-p">Positivo</span><span class="ftitle">La base es sólida — no la toques</span></div>
+<div class="fwhy">Borrador autoguardado en el dispositivo, wake-lock para que la pantalla no se apague con el timer, peso por serie, avance de foco al siguiente grupo, historial y nota rápida. Es más cuidada de lo que <i>parece</i> — justamente por eso el envoltorio le juega en contra.</div>
+<div class="fsug"><b>Lectura:</b> el trabajo pendiente es de piel (jerarquía, color, tamaños táctiles), no de arquitectura.</div></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="foot mono">Revisión sobre el estado actual del repo · sin cambios aplicados al código · foco: pantalla de registro en móvil</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    const root = document.getElementById('review-root');
+    if (!root) return;
+    const nodes = root.querySelectorAll('[data-n]');
+    nodes.forEach((el) => {
+      const n = el.dataset.n;
+      el.addEventListener('mouseenter', () => {
+        root.querySelectorAll('[data-n="' + n + '"]').forEach((t) => t.classList.add('on'));
+      });
+      el.addEventListener('mouseleave', () => {
+        root.querySelectorAll('[data-n="' + n + '"]').forEach((t) => t.classList.remove('on'));
+      });
+    });
+  }
+}
+</script>
+</body>
+</html>

@@ -9,10 +9,8 @@ import {
   useState,
   useTransition,
 } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  ArrowRightLeft,
   CalendarDays,
   Check,
   ChevronDown,
@@ -23,6 +21,7 @@ import {
   X,
 } from "lucide-react"
 
+import { ExerciseSheet } from "@/components/workouts/exercise-sheet"
 import { cn } from "@/lib/utils"
 import {
   formatDurationInputValue,
@@ -32,7 +31,6 @@ import {
 } from "@/lib/workouts/duration"
 import {
   buildAttendanceGrid,
-  formatRelativeSessionDate,
   formatSessionDate,
   formatTarget,
 } from "@/lib/workouts/formatting"
@@ -79,12 +77,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  ExerciseTimerBand,
-  ExerciseTimerTrigger,
-} from "@/components/workouts/exercise-timer-panel"
-import {
   ExerciseQuickNoteDialog,
-  ExerciseQuickNoteTrigger,
   SessionQuickNoteChips,
 } from "@/components/workouts/quick-note-controls"
 
@@ -107,7 +100,7 @@ type WorkoutSessionDraft = {
   confirmedKeys?: string[]
 }
 
-type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
+export type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
   slotId: string
   originalExerciseName: string
   assignedExerciseId: string
@@ -1406,6 +1399,10 @@ function SessionPanel({
   const hasWeightedGroups = groupsWithTracking.length > 0
   const [timerState, setTimerState] =
     useState<ExerciseTimerState>(EMPTY_TIMER_STATE)
+  const [sheetTarget, setSheetTarget] = useState<{
+    exercise: SessionExerciseView
+    setNumber: number
+  } | null>(null)
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now())
   const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
@@ -1425,6 +1422,7 @@ function SessionPanel({
   useEffect(() => {
     setTimerState(EMPTY_TIMER_STATE)
     setTimerNowMs(Date.now())
+    setSheetTarget(null)
   }, [routine.id])
 
   useEffect(() => {
@@ -1891,31 +1889,6 @@ function SessionPanel({
 
                           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                             <div className="space-y-2 pt-2">
-                              {group.exercises.some(
-                                (exercise) => exercise.previousNote
-                              ) ? (
-                                <div className="space-y-1 border-l-2 border-border pl-2">
-                                  {group.exercises.map((exercise) =>
-                                    exercise.previousNote ? (
-                                      <p
-                                        className="text-xs text-muted-foreground"
-                                        key={`${exercise.id}-previous-note`}
-                                      >
-                                        <span className="font-semibold text-foreground">
-                                          {exercise.name}
-                                        </span>{" "}
-                                        ·{" "}
-                                        <span className="lowercase">
-                                          {formatRelativeSessionDate(
-                                            exercise.previousNote.performedAt
-                                          )}
-                                        </span>
-                                        : {exercise.previousNote.text}
-                                      </p>
-                                    ) : null
-                                  )}
-                                </div>
-                              ) : null}
                               <button
                                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
                                 onClick={() => onStartAddDayExercise(group.id)}
@@ -1972,20 +1945,9 @@ function SessionPanel({
                                             setNumber
                                           )
                                           const inputId = `${inputKey}-input`
-                                          const timerId = `${inputId}-timer`
                                           const exerciseAnchorId = `exercise-slot-${exercise.slotId}`
                                           const shouldSetAnchor =
                                             setNumber === 1
-                                          const isTimeExercise =
-                                            exercise.logType === "time"
-                                          const isTimerOpen =
-                                            timerState.openTimerKey === inputKey
-                                          const elapsedSeconds =
-                                            getElapsedTimerSeconds(
-                                              timerState,
-                                              inputKey,
-                                              timerNowMs
-                                            )
                                           const targetLabel =
                                             formatTarget(exercise)
                                           const isFieldConfirmed =
@@ -2001,102 +1963,43 @@ function SessionPanel({
                                                   : undefined
                                               }
                                               key={inputKey}
-                                              className={cn(
-                                                "grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-muted-foreground/15 py-2 last:border-b-0",
-                                                isTimerOpen
-                                                  ? "items-start"
-                                                  : "items-center"
-                                              )}
+                                              className="grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-muted-foreground/15 py-2 last:border-b-0"
                                             >
-                                              <div className="min-w-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2">
-                                                {exercise.isDayExercise ? (
+                                              <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-1.5">
                                                   <button
-                                                    aria-label={`Quitar ${exercise.name}`}
-                                                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-muted-foreground"
+                                                    aria-label={`Opciones de ${exercise.name} serie ${setNumber}`}
+                                                    className="rounded-md -mx-1 px-1 py-0.5 text-left text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                                                     onClick={() =>
-                                                      onRemoveDayExercise(
-                                                        group.id,
-                                                        exercise.id
-                                                      )
+                                                      setSheetTarget({
+                                                        exercise,
+                                                        setNumber,
+                                                      })
                                                     }
                                                     type="button"
                                                   >
-                                                    <X className="size-3.5" />
+                                                    {exercise.name}
+                                                    <span className="ml-1.5 font-normal text-muted-foreground">
+                                                      ›
+                                                    </span>
                                                   </button>
-                                                ) : (
-                                                  <button
-                                                    aria-label={
-                                                      exercise.isSwapped
-                                                        ? "Deshacer intercambio"
-                                                        : "Intercambiar"
-                                                    }
-                                                    className={cn(
-                                                      "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
-                                                      exercise.isSwapped
-                                                        ? "text-amber-600 hover:bg-amber-100"
-                                                        : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
-                                                    )}
-                                                    onClick={() =>
-                                                      exercise.isSwapped
-                                                        ? onUndoSwap(
-                                                            exercise.slotId
-                                                          )
-                                                        : onStartSwap(
-                                                            exercise.slotId
-                                                          )
-                                                    }
-                                                    type="button"
-                                                  >
-                                                    <ArrowRightLeft className="size-3.5" />
-                                                  </button>
-                                                )}
-                                                <div className="min-w-0">
-                                                  <div className="flex flex-wrap items-center gap-1.5">
-                                                    <Link
-                                                      aria-label={`Ver progreso de ${exercise.name}`}
-                                                      className="rounded-md -mx-1 px-1 py-0.5 text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                                                      href={`/progress/${exercise.movementId}?routineId=${selectedRoutineId}&slotId=${exercise.slotId}`}
-                                                    >
-                                                      {exercise.name}
-                                                      <span className="ml-1.5 font-normal text-muted-foreground">
-                                                        &gt;
-                                                      </span>
-                                                    </Link>
-                                                    {exercise.isSwapped ? (
-                                                      <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
-                                                        Swap
-                                                      </Badge>
-                                                    ) : null}
-                                                  </div>
+                                                  {exercise.isSwapped ? (
+                                                    <Badge className="rounded-md bg-warning px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground hover:bg-warning">
+                                                      Swap
+                                                    </Badge>
+                                                  ) : null}
+                                                  {timerState.runningTimerKey ===
+                                                  inputKey ? (
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent-soft-foreground">
+                                                      Crono en curso
+                                                    </span>
+                                                  ) : null}
                                                 </div>
-                                                <div className="col-start-2 min-w-0">
-                                                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                                                    {targetLabel}
-                                                  </span>
-                                                </div>
+                                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                  {targetLabel}
+                                                </span>
                                               </div>
                                               <div className="flex items-center justify-end gap-1.5">
-                                                <ExerciseQuickNoteTrigger
-                                                  exerciseName={exercise.name}
-                                                  onClick={() =>
-                                                    onStartExerciseQuickNote(
-                                                      exercise.name
-                                                    )
-                                                  }
-                                                  setNumber={setNumber}
-                                                />
-                                                {isTimeExercise ? (
-                                                  <ExerciseTimerTrigger
-                                                    exerciseName={exercise.name}
-                                                    isOpen={isTimerOpen}
-                                                    onToggleOpen={() =>
-                                                      handleToggleTimerPanel(
-                                                        inputKey
-                                                      )
-                                                    }
-                                                    setNumber={setNumber}
-                                                  />
-                                                ) : null}
                                                 <input
                                                   aria-label={`${exercise.name} serie ${setNumber}`}
                                                   className={cn(
@@ -2207,35 +2110,6 @@ function SessionPanel({
                                                   ) : null}
                                                 </span>
                                               </div>
-                                              {isTimeExercise && isTimerOpen ? (
-                                                <div className="col-span-2 pt-1">
-                                                  <ExerciseTimerBand
-                                                    elapsedSeconds={
-                                                      elapsedSeconds
-                                                    }
-                                                    isRunning={
-                                                      timerState.runningTimerKey ===
-                                                      inputKey
-                                                    }
-                                                    onApply={() =>
-                                                      handleApplyTimerValue(
-                                                        inputKey,
-                                                        inputKey,
-                                                        exercise
-                                                      )
-                                                    }
-                                                    onReset={() =>
-                                                      handleResetTimer(inputKey)
-                                                    }
-                                                    onToggleRunning={() =>
-                                                      handleToggleTimerRunning(
-                                                        inputKey
-                                                      )
-                                                    }
-                                                    timerId={timerId}
-                                                  />
-                                                </div>
-                                              ) : null}
                                             </div>
                                           )
                                         })}
@@ -2302,6 +2176,53 @@ function SessionPanel({
             Esta rutina no tiene ejercicios con seguimiento de peso.
           </div>
         )}
+      {(() => {
+        if (!sheetTarget) {
+          return null
+        }
+
+        const sheetInputKey = buildWeightInputKey(
+          sheetTarget.exercise.id,
+          sheetTarget.setNumber
+        )
+
+        return (
+          <ExerciseSheet
+            elapsedSeconds={getElapsedTimerSeconds(
+              timerState,
+              sheetInputKey,
+              timerNowMs
+            )}
+            exercise={sheetTarget.exercise}
+            isTimerOpen={timerState.openTimerKey === sheetInputKey}
+            isTimerRunning={timerState.runningTimerKey === sheetInputKey}
+            onApplyTimer={() =>
+              handleApplyTimerValue(
+                sheetInputKey,
+                sheetInputKey,
+                sheetTarget.exercise
+              )
+            }
+            onOpenChange={(open) => {
+              if (!open) {
+                setSheetTarget(null)
+              }
+            }}
+            onRemoveDayExercise={onRemoveDayExercise}
+            onResetTimer={() => handleResetTimer(sheetInputKey)}
+            onStartExerciseQuickNote={onStartExerciseQuickNote}
+            onStartSwap={onStartSwap}
+            onToggleTimerOpen={() => handleToggleTimerPanel(sheetInputKey)}
+            onToggleTimerRunning={() =>
+              handleToggleTimerRunning(sheetInputKey)
+            }
+            onUndoSwap={onUndoSwap}
+            open
+            progressHref={`/progress/${sheetTarget.exercise.movementId}?routineId=${selectedRoutineId}&slotId=${sheetTarget.exercise.slotId}`}
+            setNumber={sheetTarget.setNumber}
+          />
+        )
+      })()}
     </div>
   )
 }
