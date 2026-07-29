@@ -9,10 +9,8 @@ import {
   useState,
   useTransition,
 } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  ArrowRightLeft,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -77,13 +75,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ExerciseActionsSheet } from "@/components/workouts/exercise-actions-sheet"
 import {
   ExerciseTimerBand,
   ExerciseTimerTrigger,
 } from "@/components/workouts/exercise-timer-panel"
 import {
   ExerciseQuickNoteDialog,
-  ExerciseQuickNoteTrigger,
   SessionQuickNoteChips,
 } from "@/components/workouts/quick-note-controls"
 
@@ -1319,6 +1317,9 @@ function SessionPanel({
   const hasWeightedGroups = groupsWithTracking.length > 0
   const [timerState, setTimerState] =
     useState<ExerciseTimerState>(EMPTY_TIMER_STATE)
+  const [actionExerciseSlotId, setActionExerciseSlotId] = useState<
+    string | null
+  >(null)
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now())
   const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
@@ -1337,8 +1338,14 @@ function SessionPanel({
 
   useEffect(() => {
     setTimerState(EMPTY_TIMER_STATE)
+    setActionExerciseSlotId(null)
     setTimerNowMs(Date.now())
   }, [routine.id])
+
+  const actionExercise = getSessionExerciseBySlotId(
+    routine,
+    actionExerciseSlotId
+  )
 
   useEffect(() => {
     return () => {
@@ -1680,6 +1687,33 @@ function SessionPanel({
       ref={panelRef}
       className="scroll-mt-20 rounded-xl border-border bg-card"
     >
+      {actionExercise ? (
+        <ExerciseActionsSheet
+          exerciseName={actionExercise.name}
+          isDayExercise={actionExercise.isDayExercise}
+          isSwapped={actionExercise.isSwapped}
+          onAddNote={() => onStartExerciseQuickNote(actionExercise.name)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActionExerciseSlotId(null)
+            }
+          }}
+          onRemove={() => {
+            if (actionExercise.groupId) {
+              onRemoveDayExercise(actionExercise.groupId, actionExercise.id)
+            }
+          }}
+          onSwap={() =>
+            actionExercise.isSwapped
+              ? onUndoSwap(actionExercise.slotId)
+              : onStartSwap(actionExercise.slotId)
+          }
+          open
+          progressHref={`/progress/${actionExercise.movementId}?routineId=${selectedRoutineId}&slotId=${actionExercise.slotId}`}
+          targetLabel={formatTarget(actionExercise)}
+        />
+      ) : null}
+
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1847,83 +1881,32 @@ function SessionPanel({
                                                   : "items-center"
                                               )}
                                             >
-                                              <div className="min-w-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2">
-                                                {exercise.isDayExercise ? (
-                                                  <button
-                                                    aria-label={`Quitar ${exercise.name}`}
-                                                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-muted-foreground"
-                                                    onClick={() =>
-                                                      onRemoveDayExercise(
-                                                        group.id,
-                                                        exercise.id
-                                                      )
-                                                    }
-                                                    type="button"
-                                                  >
-                                                    <X className="size-3.5" />
-                                                  </button>
-                                                ) : (
-                                                  <button
-                                                    aria-label={
-                                                      exercise.isSwapped
-                                                        ? "Deshacer intercambio"
-                                                        : "Intercambiar"
-                                                    }
-                                                    className={cn(
-                                                      "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
-                                                      exercise.isSwapped
-                                                        ? "text-amber-600 hover:bg-amber-100"
-                                                        : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
-                                                    )}
-                                                    onClick={() =>
-                                                      exercise.isSwapped
-                                                        ? onUndoSwap(
-                                                            exercise.slotId
-                                                          )
-                                                        : onStartSwap(
-                                                            exercise.slotId
-                                                          )
-                                                    }
-                                                    type="button"
-                                                  >
-                                                    <ArrowRightLeft className="size-3.5" />
-                                                  </button>
-                                                )}
-                                                <div className="min-w-0">
-                                                  <div className="flex flex-wrap items-center gap-1.5">
-                                                    <Link
-                                                      aria-label={`Ver progreso de ${exercise.name}`}
-                                                      className="rounded-md -mx-1 px-1 py-0.5 text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                                                      href={`/progress/${exercise.movementId}?routineId=${selectedRoutineId}&slotId=${exercise.slotId}`}
-                                                    >
-                                                      {exercise.name}
-                                                      <span className="ml-1.5 font-normal text-muted-foreground">
-                                                        &gt;
-                                                      </span>
-                                                    </Link>
-                                                    {exercise.isSwapped ? (
-                                                      <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
-                                                        Swap
-                                                      </Badge>
-                                                    ) : null}
-                                                  </div>
-                                                </div>
-                                                <div className="col-start-2 min-w-0">
-                                                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                                                    {targetLabel}
+                                              <button
+                                                aria-label={`Acciones de ${exercise.name}, serie ${setNumber}`}
+                                                className="group min-w-0 rounded-md px-1 py-0.5 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                onClick={() =>
+                                                  setActionExerciseSlotId(
+                                                    exercise.slotId
+                                                  )
+                                                }
+                                                type="button"
+                                              >
+                                                <span className="flex flex-wrap items-center gap-1.5">
+                                                  <span className="text-sm font-bold text-foreground">
+                                                    {exercise.name}
                                                   </span>
-                                                </div>
-                                              </div>
+                                                  {exercise.isSwapped ? (
+                                                    <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
+                                                      Swap
+                                                    </Badge>
+                                                  ) : null}
+                                                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                                                </span>
+                                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                  {targetLabel}
+                                                </span>
+                                              </button>
                                               <div className="flex items-center justify-end gap-1.5">
-                                                <ExerciseQuickNoteTrigger
-                                                  exerciseName={exercise.name}
-                                                  onClick={() =>
-                                                    onStartExerciseQuickNote(
-                                                      exercise.name
-                                                    )
-                                                  }
-                                                  setNumber={setNumber}
-                                                />
                                                 {isTimeExercise ? (
                                                   <ExerciseTimerTrigger
                                                     exerciseName={exercise.name}

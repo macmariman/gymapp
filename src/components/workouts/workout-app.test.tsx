@@ -282,13 +282,23 @@ describe("WorkoutApp", () => {
     expect(
       firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
     ).toHaveValue("")
+    await user.click(
+      screen.getByRole("button", {
+        name: "Acciones de Pecho plano con barra, serie 1",
+      })
+    )
+
+    const actionsSheet = screen.getByRole("dialog")
     expect(
-      screen.getAllByRole("link", {
-        name: "Ver progreso de Pecho plano con barra",
-      })[0]
+      within(actionsSheet).getByRole("link", {
+        name: "Ver historial",
+      })
     ).toHaveAttribute(
       "href",
       "/progress/movement-1?routineId=routine-1&slotId=exercise-1"
+    )
+    await user.click(
+      within(actionsSheet).getByRole("button", { name: "Cerrar" })
     )
 
     await user.click(screen.getByRole("button", { name: /^cardio/i }))
@@ -472,7 +482,12 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+        name: "Acciones de Pecho plano con barra, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Agregar nota",
       })
     )
 
@@ -483,6 +498,12 @@ describe("WorkoutApp", () => {
     expect(
       within(dialog).getByRole("button", { name: "Agregar nota" })
     ).toBeDisabled()
+    expect(
+      within(dialog).getByRole("button", { name: "Cancelar" })
+    ).toHaveClass("w-full", "sm:w-auto")
+    expect(
+      within(dialog).getByRole("button", { name: "Agregar nota" })
+    ).toHaveClass("w-full", "sm:w-auto")
 
     await user.click(
       within(dialog).getByRole("button", { name: "Costó completar" })
@@ -510,7 +531,12 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+        name: "Acciones de Pecho plano con barra, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Agregar nota",
       })
     )
 
@@ -564,7 +590,12 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Agregar nota rápida para Pecho plano con barra serie 1",
+        name: "Acciones de Pecho plano con barra, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Agregar nota",
       })
     )
     await user.click(
@@ -921,7 +952,12 @@ describe("WorkoutApp", () => {
 
     await user.click(
       within(pechoRow as HTMLElement).getByRole("button", {
-        name: "Intercambiar",
+        name: "Acciones de Pecho plano con barra, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Intercambiar ejercicio",
       })
     )
 
@@ -960,6 +996,11 @@ describe("WorkoutApp", () => {
 
     await user.click(
       within(swappedRow as HTMLElement).getByRole("button", {
+        name: "Acciones de Aperturas con mancuernas, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
         name: "Deshacer intercambio",
       })
     )
@@ -985,7 +1026,12 @@ describe("WorkoutApp", () => {
 
     await user.click(
       within(pechoRow as HTMLElement).getByRole("button", {
-        name: "Intercambiar",
+        name: "Acciones de Pecho plano con barra, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Intercambiar ejercicio",
       })
     )
     await user.click(
@@ -1105,7 +1151,14 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
 
     await user.click(
-      screen.getAllByRole("button", { name: "Quitar Remo con barra" })[0]
+      screen.getByRole("button", {
+        name: "Acciones de Remo con barra, serie 1",
+      })
+    )
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Quitar del día",
+      })
     )
 
     expect(

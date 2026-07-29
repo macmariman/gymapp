@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { NotebookPen } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -20,12 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-type ExerciseQuickNoteTriggerProps = {
-  exerciseName: string
-  setNumber: number
-  onClick: () => void
-}
-
 type ExerciseQuickNoteDialogProps = {
   exerciseName: string | null
   open: boolean
@@ -36,23 +29,6 @@ type ExerciseQuickNoteDialogProps = {
 type SessionQuickNoteChipsProps = {
   note: string
   onAddNote: (value: string) => void
-}
-
-export function ExerciseQuickNoteTrigger({
-  exerciseName,
-  setNumber,
-  onClick,
-}: ExerciseQuickNoteTriggerProps) {
-  return (
-    <button
-      aria-label={`Agregar nota rápida para ${exerciseName} serie ${setNumber}`}
-      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50 text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      onClick={onClick}
-      type="button"
-    >
-      <NotebookPen className="size-3.5" />
-    </button>
-  )
 }
 
 export function ExerciseQuickNoteDialog({
@@ -143,6 +119,7 @@ export function ExerciseQuickNoteDialog({
 
         <DialogFooter>
           <Button
+            className="w-full sm:w-auto"
             onClick={() => handleOpenChange(false)}
             type="button"
             variant="outline"
@@ -150,7 +127,7 @@ export function ExerciseQuickNoteDialog({
             Cancelar
           </Button>
           <Button
-            className="h-12 w-full rounded-md"
+            className="h-12 w-full rounded-md sm:w-auto"
             disabled={!canAddNote}
             onClick={handleAddNote}
             type="button"
