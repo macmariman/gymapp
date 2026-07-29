@@ -1,14 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import {
-  ArrowRight,
-  Minus,
-  RefreshCw,
-  Sparkles,
-  TrendingUp,
-  TriangleAlert,
-} from "lucide-react"
+import { ArrowRight, Minus, RefreshCw, TrendingUp, TriangleAlert } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -134,7 +127,7 @@ export function ProgressInsights() {
 
   if (phase === "insufficient") {
     return (
-      <section className="rounded-2xl border border-border bg-card px-4 py-4">
+      <section className="rounded-lg border-2 border-border bg-muted/40 px-4 py-4">
         <Header />
         <p className="mt-3 text-sm text-muted-foreground">
           Necesitás al menos 5 sesiones en los últimos 90 días para generar
@@ -148,7 +141,7 @@ export function ProgressInsights() {
   const isRefreshing = phase === "loading" && !!stored
 
   return (
-    <section className="rounded-2xl border border-border bg-card px-4 py-4">
+    <section className="rounded-lg border-2 border-border bg-muted/40 px-4 py-4">
       <div className="flex items-center justify-between">
         <Header />
         {isRefreshing && (
@@ -163,7 +156,7 @@ export function ProgressInsights() {
         <InsightSkeleton />
       ) : stored ? (
         <div className="mt-3">
-          <h2 className="text-[15.5px] font-bold leading-snug text-foreground">
+          <h2 className="text-base font-bold leading-snug">
             {stored.insight.headline}
           </h2>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed">
@@ -174,9 +167,9 @@ export function ProgressInsights() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex items-start gap-2.5 border-t border-border pt-3">
+          <div className="mt-4 flex items-start gap-2.5 border-t-2 border-border pt-3">
             <ArrowRight
-              className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent-soft-foreground"
+              className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground"
               strokeWidth={2.5}
             />
             <p className="flex-1 text-sm font-bold text-foreground">
@@ -199,7 +192,7 @@ export function ProgressInsights() {
           type="button"
           onClick={() => void fetchInsight({ force: true })}
           disabled={phase === "loading"}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-border bg-card px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-muted disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border-2 border-border bg-background px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] hover:bg-muted disabled:opacity-50"
         >
           <RefreshCw
             className={cn("h-3.5 w-3.5", phase === "loading" && "animate-spin")}
@@ -218,16 +211,8 @@ export function ProgressInsights() {
 
 function Header() {
   return (
-    <div className="flex items-center gap-2">
-      <span
-        aria-hidden
-        className="inline-flex size-4 items-center justify-center rounded bg-accent text-accent-foreground"
-      >
-        <Sparkles className="size-2.5" />
-      </span>
-      <div className="text-[10px] font-bold uppercase tracking-widest text-accent-soft-foreground">
-        Insights · Últimos 90 días
-      </div>
+    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      Insights · Últimos 90 días
     </div>
   )
 }
@@ -236,15 +221,15 @@ function BulletIcon({ type }: { type: Bullet["type"] }) {
   const Icon = type === "progress" ? TrendingUp : type === "warning" ? TriangleAlert : Minus
   const colorClass =
     type === "progress"
-      ? "bg-accent-soft text-accent-soft-foreground"
+      ? "text-chart-1"
       : type === "warning"
-        ? "bg-warning text-warning-foreground"
-        : "bg-muted text-muted-foreground"
+        ? "text-destructive"
+        : "text-muted-foreground"
 
   return (
     <span
       className={cn(
-        "mt-0.5 inline-flex size-[22px] flex-shrink-0 items-center justify-center rounded-[7px]",
+        "mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 border-border bg-background",
         colorClass
       )}
       aria-hidden

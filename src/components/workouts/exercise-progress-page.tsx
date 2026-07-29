@@ -34,7 +34,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ProgressSegmentedControl } from "@/components/workouts/progress-segmented-control"
 
 const RANGE_OPTIONS: ExerciseProgressRangeKey[] = ["3m", "6m", "1y", "all"]
 const CHART_WIDTH = 320
@@ -49,31 +48,65 @@ const TREND_MINIMUM_SESSIONS = 6
 
 function getTrendBadgeClassName(trendLabel: string) {
   if (trendLabel === "Subiendo") {
-    return "border-transparent bg-accent-soft text-accent-soft-foreground"
+    return "border-emerald-200 bg-emerald-50 text-emerald-700"
   }
 
   if (trendLabel === "Bajando") {
-    return "border-transparent bg-destructive/10 text-destructive"
+    return "border-rose-200 bg-rose-50 text-rose-700"
   }
 
   if (trendLabel === "Estable") {
     return "border-border bg-card text-foreground"
   }
 
-  return "border-transparent bg-warning text-warning-foreground"
+  return "border-amber-200 bg-amber-50 text-amber-700"
 }
 
 function getSessionsUntilTrend(sessionCount: number) {
   return Math.max(0, TREND_MINIMUM_SESSIONS - sessionCount)
 }
 
+function ProgressSegmentedControl<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T
+  options: Array<{ value: T; label: string }>
+  onChange: (value: T) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const isActive = option.value === value
+
+        return (
+          <button
+            key={option.value}
+            className={cn(
+              "min-h-9 rounded-md border-2 px-3 py-1.5 text-sm font-bold transition",
+              isActive
+                ? "border-border bg-accent text-accent-foreground shadow-brutal"
+                : "border-border bg-card text-muted-foreground hover:bg-muted"
+            )}
+            onClick={() => onChange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function ProgressStatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[13px] border border-border bg-card px-3 py-3">
-      <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+    <div className="rounded-lg border-2 border-border bg-muted/40 px-3 py-3">
+      <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 text-base font-bold tabular-nums text-foreground">{value}</div>
+      <div className="mt-1 text-sm font-bold text-foreground">{value}</div>
     </div>
   )
 }
@@ -170,7 +203,7 @@ function ProgressChart({
 
   if (chartPoints.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-8 text-center text-sm text-muted-foreground">
         No hay sesiones en el rango seleccionado.
       </div>
     )
@@ -186,7 +219,7 @@ function ProgressChart({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[15px] border border-border bg-card px-3.5 py-3.5">
+      <div className="rounded-lg border-2 border-border bg-card px-3 py-3">
         <svg
           aria-label="Gráfico de progreso"
           className="h-auto w-full overflow-visible"
@@ -319,7 +352,11 @@ export function ExerciseProgressPage({
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Button asChild className="-ml-2 text-muted-foreground" variant="ghost">
+        <Button
+          asChild
+          className="rounded-md border-2 border-border bg-card shadow-brutal"
+          variant="outline"
+        >
           <Link href={backHref}>
             <ChevronLeft className="size-4" />
             Volver
@@ -327,68 +364,76 @@ export function ExerciseProgressPage({
         </Button>
       </div>
 
-      <section className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {movement.name}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            {movement.detail} ·{" "}
+      <Card className="rounded-xl">
+        <CardHeader className="border-b-2 border-border">
+          <CardTitle className="text-xl">{movement.name}</CardTitle>
+          <CardDescription>{movement.detail}</CardDescription>
+          <div className="mt-3 text-sm text-muted-foreground">
             {sessions.length === 1 ? "1 sesión" : `${sessions.length} sesiones`}{" "}
-            · última{" "}
+            · Última:{" "}
             {sessions.length > 0
               ? formatHistoryDateLabel(
                   sessions[sessions.length - 1].performedAt
-                ).toLowerCase()
-              : "sin sesiones"}
-          </p>
-        </div>
+                )
+              : "Sin sesiones"}
+          </div>
+        </CardHeader>
         {hasSessions ? (
-          <div className="space-y-4">
-            <ProgressSegmentedControl
-              label="Métrica"
-              onChange={setSelectedMetric}
-              options={availableMetrics.map((metric) => ({
-                value: metric.key,
-                label: metric.label,
-              }))}
-              value={selectedMetric}
-            />
+          <CardContent className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Métrica
+              </div>
+              <ProgressSegmentedControl
+                onChange={setSelectedMetric}
+                options={availableMetrics.map((metric) => ({
+                  value: metric.key,
+                  label: metric.label,
+                }))}
+                value={selectedMetric}
+              />
+            </div>
 
-            <ProgressSegmentedControl
-              label="Rango"
-              onChange={setSelectedRange}
-              options={RANGE_OPTIONS.map((range) => ({
-                value: range,
-                label: getRangeLabel(range),
-              }))}
-              value={selectedRange}
-            />
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Rango
+              </div>
+              <ProgressSegmentedControl
+                onChange={setSelectedRange}
+                options={RANGE_OPTIONS.map((range) => ({
+                  value: range,
+                  label: getRangeLabel(range),
+                }))}
+                value={selectedRange}
+              />
+            </div>
 
             {movement.logType === "weight" &&
             selectedMetric === "totalVolume" ? (
-              <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
                 El volumen se estima con las repeticiones objetivo configuradas
                 en el ejercicio.
               </div>
             ) : null}
-          </div>
+          </CardContent>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border bg-muted/50 px-4 py-6 text-center">
-            <div className="text-sm font-bold text-foreground">
-              Aún no hay suficientes datos para este ejercicio.
+          <CardContent className="pt-4">
+            <div className="rounded-lg border-2 border-dashed border-border bg-muted/50 px-4 py-6 text-center">
+              <div className="text-sm font-bold text-foreground">
+                Aún no hay suficientes datos para este ejercicio.
+              </div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Guardá más sesiones para ver la evolución de su progreso.
+              </div>
             </div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Guardá más sesiones para ver la evolución de su progreso.
-            </div>
-          </div>
+          </CardContent>
         )}
-      </section>
+      </Card>
 
       {hasSessions ? (
         <>
           <Card className="rounded-xl">
-            <CardHeader className="border-b border-border">
+            <CardHeader className="border-b-2 border-border">
               <CardTitle className="text-lg">Gráfico histórico</CardTitle>
               <CardDescription>
                 Una sesión es un punto dentro del rango seleccionado.
@@ -404,7 +449,7 @@ export function ExerciseProgressPage({
               />
 
               {activeSession ? (
-                <div className="rounded-[13px] bg-accent-soft px-3 py-3">
+                <div className="rounded-lg border-2 border-border bg-muted/40 px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-bold text-foreground">
@@ -440,7 +485,7 @@ export function ExerciseProgressPage({
           </Card>
 
           <Card className="rounded-xl">
-            <CardHeader className="border-b border-border">
+            <CardHeader className="border-b-2 border-border">
               <CardTitle className="text-lg">Resumen</CardTitle>
               <CardDescription>
                 Indicadores históricos para la métrica seleccionada.
@@ -482,8 +527,8 @@ export function ExerciseProgressPage({
                 />
               </div>
 
-              <div className="rounded-[13px] border border-border bg-card px-3 py-3">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="rounded-lg border-2 border-border bg-card px-3 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Tendencia
                 </div>
                 {hasEnoughHistory ? (
@@ -510,7 +555,7 @@ export function ExerciseProgressPage({
           </Card>
 
           <Card className="rounded-xl">
-            <CardHeader className="border-b border-border">
+            <CardHeader className="border-b-2 border-border">
               <CardTitle className="text-lg">Historial</CardTitle>
               <CardDescription>
                 {historySessions.length === 0

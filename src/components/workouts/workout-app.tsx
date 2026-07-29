@@ -9,10 +9,11 @@ import {
   useState,
   useTransition,
 } from "react"
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
+  ArrowRightLeft,
   CalendarDays,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -21,7 +22,6 @@ import {
   X,
 } from "lucide-react"
 
-import { ExerciseSheet } from "@/components/workouts/exercise-sheet"
 import { cn } from "@/lib/utils"
 import {
   formatDurationInputValue,
@@ -31,6 +31,7 @@ import {
 } from "@/lib/workouts/duration"
 import {
   buildAttendanceGrid,
+  formatRelativeSessionDate,
   formatSessionDate,
   formatTarget,
 } from "@/lib/workouts/formatting"
@@ -51,6 +52,13 @@ import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -70,11 +78,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  ExerciseTimerBand,
+  ExerciseTimerTrigger,
+} from "@/components/workouts/exercise-timer-panel"
+import {
   ExerciseQuickNoteDialog,
+  ExerciseQuickNoteTrigger,
   SessionQuickNoteChips,
 } from "@/components/workouts/quick-note-controls"
 
-const weekDays = ["L", "M", "M", "J", "V", "S", "D"]
+const weekDays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"]
 
 type SubmissionState =
   | { type: "idle"; message: string }
@@ -90,10 +103,9 @@ type WorkoutSessionDraft = {
   values: Record<string, string>
   slotAssignments: SlotAssignments
   dayExercisesByGroupId: DayExerciseAssignments
-  confirmedKeys?: string[]
 }
 
-export type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
+type SessionExerciseView = ExerciseGroupView["exercises"][number] & {
   slotId: string
   originalExerciseName: string
   assignedExerciseId: string
@@ -136,7 +148,6 @@ const EMPTY_TIMER_STATE: ExerciseTimerState = {
   elapsedByTimerKey: {},
 }
 const WORKOUT_SESSION_DRAFT_KEY_PREFIX = "gym-app.workout-session-draft:"
-const SESSION_NOTE_TEXTAREA_ID = "session-note-textarea"
 const GROUP_ADVANCE_SCROLL_DELAY_MS = 220
 const MANUAL_INPUT_SELECT_DELAY_MS = 0
 
@@ -174,71 +185,6 @@ function FloatingToast({
 
 function buildWeightInputKey(exerciseId: string, setNumber: number) {
   return `${exerciseId}:${setNumber}`
-}
-
-function splitRoutineTitle(name: string) {
-  const match = name.match(/^(Día\s*\d+)\s*[·\-:]\s*(.+)$/i)
-
-  if (match) {
-    return { kicker: `Hoy · ${match[1]}`, title: match[2] }
-  }
-
-  return { kicker: "Hoy", title: name }
-}
-
-function getSeriesProgress(
-  routine: SessionRoutineWithStructure | undefined,
-  confirmedKeys: string[]
-) {
-  const confirmedSet = new Set(confirmedKeys)
-  const perGroup: Record<string, { done: number; total: number }> = {}
-  let confirmedSeries = 0
-  let totalSeries = 0
-
-  for (const section of routine?.sections ?? []) {
-    for (const group of section.groups) {
-      if (group.exercises.length === 0) {
-        continue
-      }
-
-      const groupProgress = { done: 0, total: group.series }
-
-      for (let setNumber = 1; setNumber <= group.series; setNumber += 1) {
-        totalSeries += 1
-
-        const isSetConfirmed = group.exercises.every((exercise) =>
-          confirmedSet.has(buildWeightInputKey(exercise.id, setNumber))
-        )
-
-        if (isSetConfirmed) {
-          confirmedSeries += 1
-          groupProgress.done += 1
-        }
-      }
-
-      perGroup[group.id] = groupProgress
-    }
-  }
-
-  return { confirmedSeries, totalSeries, perGroup }
-}
-
-function countRoutineBlocksAndSeries(routine: RoutineWithStructure | undefined) {
-  let blocks = 0
-  let series = 0
-
-  for (const section of routine?.sections ?? []) {
-    for (const group of section.groups) {
-      if (group.exercises.length === 0) {
-        continue
-      }
-
-      blocks += 1
-      series += group.series
-    }
-  }
-
-  return { blocks, series }
 }
 
 function buildInitialSlotAssignments(
@@ -541,11 +487,6 @@ function readWorkoutSessionDraft(
       values: parsedDraft.values,
       slotAssignments: parsedDraft.slotAssignments,
       dayExercisesByGroupId: parsedDraft.dayExercisesByGroupId,
-      confirmedKeys: Array.isArray(parsedDraft.confirmedKeys)
-        ? parsedDraft.confirmedKeys.filter(
-            (key): key is string => typeof key === "string"
-          )
-        : [],
     }
   } catch {
     return null
@@ -649,7 +590,6 @@ function hasWorkoutSessionDraftChanges({
   values,
   slotAssignments,
   dayExercisesByGroupId,
-  confirmedKeys,
   initialValues,
   initialSlotAssignments,
 }: {
@@ -657,13 +597,11 @@ function hasWorkoutSessionDraftChanges({
   values: Record<string, string>
   slotAssignments: SlotAssignments
   dayExercisesByGroupId: DayExerciseAssignments
-  confirmedKeys: string[]
   initialValues: Record<string, string>
   initialSlotAssignments: SlotAssignments
 }) {
   return (
     note.trim().length > 0 ||
-    confirmedKeys.length > 0 ||
     !areStringRecordsEqual(values, initialValues) ||
     !areStringRecordsEqual(slotAssignments, initialSlotAssignments) ||
     !areDayExerciseAssignmentsEqual(dayExercisesByGroupId, {})
@@ -824,70 +762,39 @@ function RoutineList({
   onSelect: (routineId: string) => void
 }) {
   return (
-    <section className="space-y-2">
-      <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-        Rutinas
-      </div>
-      <div className="space-y-2">
+    <Card>
+      <CardHeader className="border-b-2 border-border">
+        <CardTitle className="text-lg uppercase tracking-wide">
+          Rutinas
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 pt-3">
         {routines.map((routine) => (
           <button
             key={routine.id}
             className={cn(
-              "flex min-h-[52px] w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition",
+              "flex w-full items-center justify-between rounded-md border-2 px-3 py-2 text-left transition",
               routine.id === selectedRoutineId
-                ? "border-accent/40 bg-accent-soft"
-                : "border-border bg-card hover:bg-muted/60"
+                ? "border-accent bg-accent/10 shadow-brutal-sm"
+                : "border-border bg-card hover:border-foreground"
             )}
             onClick={() => onSelect(routine.id)}
             type="button"
           >
             <div className="space-y-0.5">
-              <div
-                className={cn(
-                  "text-sm font-bold",
-                  routine.id === selectedRoutineId
-                    ? "text-accent-soft-foreground"
-                    : "text-foreground"
-                )}
-              >
+              <div className="text-sm font-bold text-foreground">
                 {routine.name}
               </div>
               <div className="text-xs text-muted-foreground">
                 {routine.summary}
               </div>
             </div>
-            <ChevronRight className="size-5 text-muted-foreground" />
+            <ChevronRight className="size-5 text-foreground" />
           </button>
         ))}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
-}
-
-function getAttendanceInsights(history: WorkoutPageData["history"]) {
-  if (history.length < 2) {
-    return null
-  }
-
-  const weekMs = 7 * 24 * 60 * 60 * 1000
-  const sessionDates = history.map((entry) => new Date(entry.performedAt))
-  const weekStarts = new Set(
-    sessionDates.map((date) => getWeekStart(date).getTime())
-  )
-
-  let weekStreak = 0
-  let cursor = getWeekStart(new Date()).getTime()
-
-  while (weekStarts.has(cursor)) {
-    weekStreak += 1
-    cursor = getWeekStart(new Date(cursor - weekMs)).getTime()
-  }
-
-  const oldestMs = Math.min(...sessionDates.map((date) => date.getTime()))
-  const spanWeeks = Math.max(1, (Date.now() - oldestMs) / weekMs)
-  const sessionsPerWeek = history.length / spanWeeks
-
-  return { weekStreak, sessionsPerWeek }
 }
 
 function AttendanceCard({
@@ -927,102 +834,100 @@ function AttendanceCard({
     }
   }, [history, visibleMonthDate])
   const cells = buildAttendanceGrid(visibleAttendance)
-  const isCurrentMonthVisible =
-    visibleMonthDate.getFullYear() === today.getFullYear() &&
-    visibleMonthDate.getMonth() === today.getMonth()
-  const insights = getAttendanceInsights(history)
 
   return (
     <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-      <section className="border-t border-border pt-3">
-        <CollapsibleTrigger asChild>
-          <button
-            className="flex min-h-[52px] w-full items-center justify-between gap-4 rounded-xl px-1 text-left transition-colors hover:bg-muted/60"
-            type="button"
-          >
-            <div>
-              <div className="text-base font-bold text-foreground">
-                Asistencia
+      <Card className="gap-0 rounded-xl border-border bg-card">
+        <CardHeader className="pb-0">
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-start justify-between gap-4 text-left"
+              type="button"
+            >
+              <div className="space-y-1">
+                <CardTitle className="text-lg text-foreground">
+                  Asistencia
+                </CardTitle>
+                <CardDescription>Sesiones registradas del mes</CardDescription>
               </div>
-              <div className="text-xs text-muted-foreground">
-                Sesiones registradas del mes
-              </div>
-            </div>
-            <ChevronDown
-              className={cn(
-                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                isOpen ? "rotate-180" : "rotate-0"
-              )}
-            />
-          </button>
-        </CollapsibleTrigger>
+              <ChevronDown
+                className={cn(
+                  "mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200",
+                  isOpen ? "rotate-0" : "-rotate-90"
+                )}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </CardHeader>
         <CollapsibleContent className="overflow-hidden">
-          <div className="space-y-4 px-1 pt-3">
-            <div>
-              <div className="text-[44px] font-bold leading-none tabular-nums text-foreground">
-                {visibleAttendance.daysWithSessions.length}
+          <CardContent className="space-y-3 pt-3">
+            <div className="flex items-center justify-between border-b border-dashed border-border pb-3">
+              <div className="flex items-center gap-3">
+                <button
+                  aria-label="Mes anterior"
+                  className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:bg-muted"
+                  onClick={() =>
+                    setVisibleMonthDate(
+                      (currentDate) =>
+                        new Date(
+                          currentDate.getFullYear(),
+                          currentDate.getMonth() - 1,
+                          1
+                        )
+                    )
+                  }
+                  type="button"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <div className="space-y-0.5">
+                  <div className="text-sm font-bold text-foreground">
+                    {new Intl.DateTimeFormat("es-UY", {
+                      month: "long",
+                      year: "numeric",
+                    }).format(visibleMonthDate)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Asistencia del mes actual
+                  </div>
+                </div>
+                <button
+                  aria-label="Mes siguiente"
+                  className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canGoForward}
+                  onClick={() =>
+                    setVisibleMonthDate(
+                      (currentDate) =>
+                        new Date(
+                          currentDate.getFullYear(),
+                          currentDate.getMonth() + 1,
+                          1
+                        )
+                    )
+                  }
+                  type="button"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
               </div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                {visibleAttendance.daysWithSessions.length === 1
-                  ? "día entrenado"
-                  : "días entrenados"}
+              <div className="text-right">
+                <div className="text-2xl font-semibold text-foreground">
+                  {visibleAttendance.daysWithSessions.length}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {visibleAttendance.daysWithSessions.length === 1
+                    ? "día entrenado"
+                    : "días entrenados"}
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <button
-                aria-label="Mes anterior"
-                className="inline-flex size-10 items-center justify-center rounded-[11px] border border-border bg-card text-muted-foreground transition hover:bg-muted"
-                onClick={() =>
-                  setVisibleMonthDate(
-                    (currentDate) =>
-                      new Date(
-                        currentDate.getFullYear(),
-                        currentDate.getMonth() - 1,
-                        1
-                      )
-                  )
-                }
-                type="button"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <div className="text-center text-sm font-bold text-foreground">
-                {(() => {
-                  const label = new Intl.DateTimeFormat("es-UY", {
-                    month: "long",
-                    year: "numeric",
-                  }).format(visibleMonthDate)
-
-                  return label.charAt(0).toUpperCase() + label.slice(1)
-                })()}
-              </div>
-              <button
-                aria-label="Mes siguiente"
-                className="inline-flex size-10 items-center justify-center rounded-[11px] border border-border bg-card text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!canGoForward}
-                onClick={() =>
-                  setVisibleMonthDate(
-                    (currentDate) =>
-                      new Date(
-                        currentDate.getFullYear(),
-                        currentDate.getMonth() + 1,
-                        1
-                      )
-                  )
-                }
-                type="button"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-
-            <div>
+            <div className="pt-1">
               <div className="mb-2 grid grid-cols-7 gap-1.5">
-                {weekDays.map((label, index) => (
+                {weekDays.map((label) => (
                   <div
-                    key={`${label}-${index}`}
-                    className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
+                    key={label}
+                    className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
                   >
                     {label}
                   </div>
@@ -1035,14 +940,10 @@ function AttendanceCard({
                     <div
                       key={`${cell.day}-${index}`}
                       className={cn(
-                        "flex aspect-square items-center justify-center rounded-[11px] text-sm font-semibold",
+                        "flex aspect-square items-center justify-center rounded-lg text-sm font-semibold",
                         cell.completed
-                          ? "bg-accent font-bold text-accent-foreground"
-                          : "bg-muted text-muted-foreground",
-                        isCurrentMonthVisible &&
-                          cell.day === today.getDate() &&
-                          !cell.completed &&
-                          "bg-card text-accent-soft-foreground shadow-[inset_0_0_0_2px_var(--accent)]"
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-muted text-muted-foreground"
                       )}
                     >
                       {cell.day}
@@ -1050,38 +951,15 @@ function AttendanceCard({
                   ) : (
                     <div
                       key={`empty-${index}`}
-                      className="aspect-square rounded-[11px] bg-transparent"
+                      className="aspect-square rounded-lg bg-transparent"
                     />
                   )
                 )}
               </div>
             </div>
-
-            {insights ? (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-[13px] border border-border px-3 py-2.5">
-                  <div className="text-2xl font-bold tabular-nums text-foreground">
-                    {insights.weekStreak}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {insights.weekStreak === 1
-                      ? "semana seguida activo"
-                      : "semanas seguidas activo"}
-                  </div>
-                </div>
-                <div className="rounded-[13px] border border-border px-3 py-2.5">
-                  <div className="text-2xl font-bold tabular-nums text-foreground">
-                    {insights.sessionsPerWeek.toFixed(1).replace(".", ",")}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    sesiones/semana prom.
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          </CardContent>
         </CollapsibleContent>
-      </section>
+      </Card>
     </Collapsible>
   )
 }
@@ -1109,32 +987,32 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
 
   return (
     <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-      <section className="border-t border-border pt-3">
-        <CollapsibleTrigger asChild>
-          <button
-            className="flex min-h-[52px] w-full items-center justify-between gap-4 rounded-xl px-1 text-left transition-colors hover:bg-muted/60"
-            type="button"
-          >
-            <div>
-              <div className="text-base font-bold text-foreground">
-                Historial
+      <Card>
+        <CardHeader className="border-b-2 border-border">
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-start justify-between gap-4 text-left"
+              type="button"
+            >
+              <div className="space-y-1">
+                <CardTitle className="text-lg uppercase tracking-wide">
+                  Historial
+                </CardTitle>
+                <CardDescription>Últimas 10 sesiones</CardDescription>
               </div>
-              <div className="text-xs text-muted-foreground">
-                Últimas 10 sesiones
-              </div>
-            </div>
-            <ChevronDown
-              className={cn(
-                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                isOpen ? "rotate-180" : "rotate-0"
-              )}
-            />
-          </button>
-        </CollapsibleTrigger>
+              <ChevronDown
+                className={cn(
+                  "mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200",
+                  isOpen ? "rotate-0" : "-rotate-90"
+                )}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </CardHeader>
         <CollapsibleContent className="overflow-hidden">
-          <div className="space-y-0 px-1 pt-1">
+          <CardContent className="space-y-0 pt-2">
             {history.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
                 Todavía no hay sesiones guardadas.
               </div>
             ) : (
@@ -1149,11 +1027,11 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                   <div className="border-b border-border last:border-b-0">
                     <CollapsibleTrigger asChild>
                       <button
-                        className="flex min-h-[52px] w-full items-center justify-between gap-3 py-2 text-left"
+                        className="flex w-full items-center justify-between gap-3 py-2 text-left"
                         type="button"
                       >
                         <div>
-                          <div className="text-[15px] font-bold text-foreground">
+                          <div className="text-sm font-semibold text-foreground">
                             {entry.routineName}
                           </div>
                           <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1170,9 +1048,9 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                       </button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="overflow-hidden">
-                      <div className="space-y-2 py-2">
+                      <div className="space-y-2 border-t border-dashed border-border py-3">
                         {entry.note ? (
-                          <div className="rounded-[11px] bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
+                          <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                             {entry.note}
                           </div>
                         ) : null}
@@ -1210,9 +1088,9 @@ function SessionHistory({ history }: Pick<WorkoutPageData, "history">) {
                 </Collapsible>
               ))
             )}
-          </div>
+          </CardContent>
         </CollapsibleContent>
-      </section>
+      </Card>
     </Collapsible>
   )
 }
@@ -1251,18 +1129,18 @@ function ExerciseSwapDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-border bg-card p-0 shadow-lg sm:max-w-2xl"
+        className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl"
       >
-        <DialogHeader className="space-y-3 border-b border-border px-4 py-4 text-left">
-          <DialogTitle className="text-lg font-bold">
+        <DialogHeader className="space-y-3 border-b-2 border-border px-4 py-4 text-left">
+          <DialogTitle className="text-lg font-bold uppercase tracking-wide">
             Intercambiar ejercicio
           </DialogTitle>
           {sourceExercise ? (
-            <div className="rounded-xl bg-accent-soft px-3 py-2">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-accent-soft-foreground/80">
+            <div className="rounded border-2 border-accent bg-accent px-3 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-accent-foreground/70">
                 Origen
               </div>
-              <div className="text-sm font-bold text-accent-soft-foreground">
+              <div className="text-sm font-bold text-accent-foreground">
                 {sourceExercise.name}
               </div>
             </div>
@@ -1271,7 +1149,7 @@ function ExerciseSwapDialog({
 
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {candidateSections.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+            <div className="rounded border-2 border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
               No hay otros ejercicios disponibles para intercambiar ahora.
             </div>
           ) : (
@@ -1352,10 +1230,10 @@ function DayExerciseDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-border bg-card p-0 shadow-lg sm:max-w-2xl"
+        className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg border-2 border-border bg-card p-0 shadow-brutal sm:max-w-2xl"
       >
-        <DialogHeader className="border-b border-border px-4 py-4 text-left">
-          <DialogTitle className="text-lg font-bold">
+        <DialogHeader className="border-b-2 border-border px-4 py-4 text-left">
+          <DialogTitle className="text-lg font-bold uppercase tracking-wide">
             Elegir ejercicio
           </DialogTitle>
         </DialogHeader>
@@ -1415,9 +1293,6 @@ function SessionPanel({
   onRemoveDayExercise,
   onSubmit,
   panelRef,
-  confirmedKeys,
-  onConfirmValue,
-  onUnconfirmValue,
 }: {
   routine: SessionRoutineWithStructure
   selectedRoutineId: string
@@ -1425,9 +1300,6 @@ function SessionPanel({
   note: string
   isPending: boolean
   values: Record<string, string>
-  confirmedKeys: string[]
-  onConfirmValue: (key: string) => void
-  onUnconfirmValue: (key: string) => void
   onOpenGroupIdsChange: (groupIds: string[]) => void
   onNoteChange: (value: string) => void
   onValueChange: (key: string, value: string) => void
@@ -1447,10 +1319,6 @@ function SessionPanel({
   const hasWeightedGroups = groupsWithTracking.length > 0
   const [timerState, setTimerState] =
     useState<ExerciseTimerState>(EMPTY_TIMER_STATE)
-  const [sheetTarget, setSheetTarget] = useState<{
-    exercise: SessionExerciseView
-    setNumber: number
-  } | null>(null)
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now())
   const timerStateRef = useRef<ExerciseTimerState>(EMPTY_TIMER_STATE)
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
@@ -1470,7 +1338,6 @@ function SessionPanel({
   useEffect(() => {
     setTimerState(EMPTY_TIMER_STATE)
     setTimerNowMs(Date.now())
-    setSheetTarget(null)
   }, [routine.id])
 
   useEffect(() => {
@@ -1577,7 +1444,7 @@ function SessionPanel({
   const groupBoundaryInputs = React.useMemo(() => {
     const map = new Map<string, string>()
 
-    for (let i = 0; i < flattenedGroups.length; i++) {
+    for (let i = 0; i < flattenedGroups.length - 1; i++) {
       const group = flattenedGroups[i]
       const lastSetNumber = group.series
       const lastExercise = group.exercises[group.exercises.length - 1]
@@ -1685,19 +1552,10 @@ function SessionPanel({
       (group) => group.id === currentGroupId
     )
 
-    if (currentGroupIndex === -1) {
-      return
-    }
-
-    if (currentGroupIndex === flattenedGroups.length - 1) {
-      onOpenGroupIdsChange([])
-      window.requestAnimationFrame(() => {
-        const noteTextarea = document.getElementById(SESSION_NOTE_TEXTAREA_ID)
-
-        if (noteTextarea instanceof HTMLTextAreaElement) {
-          noteTextarea.focus()
-        }
-      })
+    if (
+      currentGroupIndex === -1 ||
+      currentGroupIndex === flattenedGroups.length - 1
+    ) {
       return
     }
 
@@ -1815,24 +1673,25 @@ function SessionPanel({
       inputKey,
       formatDurationInputValue(elapsedSeconds, exercise.durationFormat)
     )
-
-    if (elapsedSeconds > 0) {
-      onConfirmValue(inputKey)
-    }
   }
 
-  const confirmedSet = React.useMemo(
-    () => new Set(confirmedKeys),
-    [confirmedKeys]
-  )
-  const seriesProgress = React.useMemo(
-    () => getSeriesProgress(routine, confirmedKeys),
-    [routine, confirmedKeys]
-  )
-  const savedBarProgressLabel = `${seriesProgress.confirmedSeries}/${seriesProgress.totalSeries}`
-
   return (
-    <div ref={panelRef} className="scroll-mt-20 space-y-3">
+    <Card
+      ref={panelRef}
+      className="scroll-mt-20 rounded-xl border-border bg-card"
+    >
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg">{routine.name}</CardTitle>
+            <CardDescription>{routine.summary}</CardDescription>
+          </div>
+          <Badge className="rounded border-2 border-border bg-card px-2 py-1 text-xs font-bold text-foreground">
+            {formatRelativeSessionDate(routine.lastSessionAt)}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
         {hasWeightedGroups ? (
           <>
             {routine.sections.map((section) => {
@@ -1846,27 +1705,13 @@ function SessionPanel({
 
               return (
                 <div key={section.id} className="space-y-2">
-                  <div className="pb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  <div className="border-b-2 border-border pb-2">
+                    <span className="text-sm font-bold uppercase tracking-wide text-foreground">
                       {section.name}
                     </span>
                   </div>
                   {sectionGroups.map((group) => {
                     const isOpen = openGroupIds.includes(group.id)
-                    const groupProgress = seriesProgress.perGroup[group.id]
-                    const setConfirmations = Array.from(
-                      { length: group.series },
-                      (_, index) =>
-                        group.exercises.every((exercise) =>
-                          confirmedSet.has(
-                            buildWeightInputKey(exercise.id, index + 1)
-                          )
-                        )
-                    )
-                    const currentSetNumber =
-                      setConfirmations.findIndex(
-                        (isConfirmed) => !isConfirmed
-                      ) + 1
 
                     return (
                       <Collapsible
@@ -1877,7 +1722,7 @@ function SessionPanel({
                         open={isOpen}
                       >
                         <div
-                          className="scroll-mt-20 border-b border-border pb-3 last:border-b-0"
+                          className="scroll-mt-20 border-b border-dashed border-border pb-3 last:border-b-0"
                           ref={(element) => {
                             groupRefs.current[group.id] = element
                           }}
@@ -1889,41 +1734,20 @@ function SessionPanel({
                                   ? getGroupTriggerLabel(group)
                                   : undefined
                               }
-                              className="flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl px-1 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              className={cn(
+                                "flex w-full items-center justify-between gap-3 rounded-lg px-1 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                                isOpen ? "bg-muted/40" : ""
+                              )}
                               type="button"
                             >
                               <div className="min-w-0">
                                 {!shouldHideGroupName(group) ? (
-                                  <div className="truncate text-base font-bold text-foreground">
+                                  <div className="text-sm font-semibold text-foreground">
                                     {group.name}
                                   </div>
                                 ) : null}
-                                <div className="text-xs text-muted-foreground">
-                                  {group.series}{" "}
-                                  {group.series === 1 ? "serie" : "series"}
-                                  {" × "}
-                                  {group.exercises.length}{" "}
-                                  {group.exercises.length === 1
-                                    ? "ejercicio"
-                                    : "ejercicios"}
-                                  {group.exercises.length > 1
-                                    ? " · en circuito"
-                                    : ""}
-                                </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                {groupProgress ? (
-                                  <span
-                                    className={cn(
-                                      "font-mono text-xs font-bold tabular-nums",
-                                      groupProgress.done > 0
-                                        ? "text-accent-soft-foreground"
-                                        : "text-muted-foreground"
-                                    )}
-                                  >
-                                    {groupProgress.done}/{groupProgress.total}
-                                  </span>
-                                ) : null}
                                 <ChevronDown
                                   aria-hidden="true"
                                   className={cn(
@@ -1937,8 +1761,33 @@ function SessionPanel({
 
                           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                             <div className="space-y-2 pt-2">
+                              {group.exercises.some(
+                                (exercise) => exercise.previousNote
+                              ) ? (
+                                <div className="space-y-1 border-l-2 border-border pl-2">
+                                  {group.exercises.map((exercise) =>
+                                    exercise.previousNote ? (
+                                      <p
+                                        className="text-xs text-muted-foreground"
+                                        key={`${exercise.id}-previous-note`}
+                                      >
+                                        <span className="font-semibold text-foreground">
+                                          {exercise.name}
+                                        </span>{" "}
+                                        ·{" "}
+                                        <span className="lowercase">
+                                          {formatRelativeSessionDate(
+                                            exercise.previousNote.performedAt
+                                          )}
+                                        </span>
+                                        : {exercise.previousNote.text}
+                                      </p>
+                                    ) : null
+                                  )}
+                                </div>
+                              ) : null}
                               <button
-                                className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
                                 onClick={() => onStartAddDayExercise(group.id)}
                                 type="button"
                               >
@@ -1949,59 +1798,39 @@ function SessionPanel({
                                 { length: group.series },
                                 (_, index) => {
                                   const setNumber = index + 1
-                                  const isSetConfirmed =
-                                    setConfirmations[index] ?? false
-                                  const isCurrentSet =
-                                    setNumber === currentSetNumber
 
                                   return (
                                     <div
                                       key={`${group.id}-set-${setNumber}`}
-                                      className={cn(
-                                        "rounded-2xl px-3 pb-1 pt-2.5",
-                                        isSetConfirmed && "opacity-60",
-                                        isCurrentSet && "bg-accent-soft"
-                                      )}
-                                      data-set-container
+                                      className="space-y-1 py-1"
                                     >
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={cn(
-                                            "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest",
-                                            isCurrentSet
-                                              ? "bg-accent text-accent-foreground"
-                                              : "border border-border text-muted-foreground"
-                                          )}
-                                        >
-                                          Serie {setNumber}
-                                        </span>
-                                        {isSetConfirmed ? (
-                                          <span className="text-xs text-muted-foreground">
-                                            Completada
-                                          </span>
-                                        ) : isCurrentSet ? (
-                                          <span className="text-xs font-semibold text-accent-soft-foreground">
-                                            En curso
-                                          </span>
-                                        ) : null}
+                                      <div className="inline-block rounded bg-accent px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-accent-foreground">
+                                        Serie {setNumber}
                                       </div>
 
-                                      <div>
+                                      <div className="space-y-1">
                                         {group.exercises.map((exercise) => {
                                           const inputKey = buildWeightInputKey(
                                             exercise.id,
                                             setNumber
                                           )
                                           const inputId = `${inputKey}-input`
+                                          const timerId = `${inputId}-timer`
                                           const exerciseAnchorId = `exercise-slot-${exercise.slotId}`
                                           const shouldSetAnchor =
                                             setNumber === 1
+                                          const isTimeExercise =
+                                            exercise.logType === "time"
+                                          const isTimerOpen =
+                                            timerState.openTimerKey === inputKey
+                                          const elapsedSeconds =
+                                            getElapsedTimerSeconds(
+                                              timerState,
+                                              inputKey,
+                                              timerNowMs
+                                            )
                                           const targetLabel =
                                             formatTarget(exercise)
-                                          const isFieldConfirmed =
-                                            confirmedSet.has(inputKey)
-                                          const hasFieldValue =
-                                            (values[inputKey] ?? "").length > 0
 
                                           return (
                                             <div
@@ -2011,58 +1840,112 @@ function SessionPanel({
                                                   : undefined
                                               }
                                               key={inputKey}
-                                              className="grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-muted-foreground/15 py-2 last:border-b-0"
+                                              className={cn(
+                                                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] gap-2 py-2",
+                                                isTimerOpen
+                                                  ? "items-start"
+                                                  : "items-center"
+                                              )}
                                             >
-                                              <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-1.5">
+                                              <div className="min-w-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2">
+                                                {exercise.isDayExercise ? (
                                                   <button
-                                                    aria-label={`Opciones de ${exercise.name} serie ${setNumber}`}
-                                                    className="rounded-md -mx-1 px-1 py-0.5 text-left text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                    aria-label={`Quitar ${exercise.name}`}
+                                                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-muted-foreground"
                                                     onClick={() =>
-                                                      setSheetTarget({
-                                                        exercise,
-                                                        setNumber,
-                                                      })
+                                                      onRemoveDayExercise(
+                                                        group.id,
+                                                        exercise.id
+                                                      )
                                                     }
                                                     type="button"
                                                   >
-                                                    {exercise.name}
-                                                    <span className="ml-1.5 font-normal text-muted-foreground">
-                                                      ›
-                                                    </span>
+                                                    <X className="size-3.5" />
                                                   </button>
-                                                  {exercise.isSwapped ? (
-                                                    <Badge className="rounded-md bg-warning px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground hover:bg-warning">
-                                                      Swap
-                                                    </Badge>
-                                                  ) : null}
-                                                  {timerState.runningTimerKey ===
-                                                  inputKey ? (
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent-soft-foreground">
-                                                      Crono en curso
-                                                    </span>
-                                                  ) : null}
+                                                ) : (
+                                                  <button
+                                                    aria-label={
+                                                      exercise.isSwapped
+                                                        ? "Deshacer intercambio"
+                                                        : "Intercambiar"
+                                                    }
+                                                    className={cn(
+                                                      "inline-flex size-6 shrink-0 items-center justify-center rounded-md transition",
+                                                      exercise.isSwapped
+                                                        ? "text-amber-600 hover:bg-amber-100"
+                                                        : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+                                                    )}
+                                                    onClick={() =>
+                                                      exercise.isSwapped
+                                                        ? onUndoSwap(
+                                                            exercise.slotId
+                                                          )
+                                                        : onStartSwap(
+                                                            exercise.slotId
+                                                          )
+                                                    }
+                                                    type="button"
+                                                  >
+                                                    <ArrowRightLeft className="size-3.5" />
+                                                  </button>
+                                                )}
+                                                <div className="min-w-0">
+                                                  <div className="flex flex-wrap items-center gap-1.5">
+                                                    <Link
+                                                      aria-label={`Ver progreso de ${exercise.name}`}
+                                                      className="rounded-md -mx-1 px-1 py-0.5 text-sm font-bold text-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                                                      href={`/progress/${exercise.movementId}?routineId=${selectedRoutineId}&slotId=${exercise.slotId}`}
+                                                    >
+                                                      {exercise.name}
+                                                      <span className="ml-1.5 font-normal text-muted-foreground">
+                                                        &gt;
+                                                      </span>
+                                                    </Link>
+                                                    {exercise.isSwapped ? (
+                                                      <Badge className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">
+                                                        Swap
+                                                      </Badge>
+                                                    ) : null}
+                                                  </div>
                                                 </div>
-                                                <span className="mt-0.5 block text-xs text-muted-foreground">
-                                                  {targetLabel}
-                                                </span>
+                                                <div className="col-start-2 min-w-0">
+                                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                    {targetLabel}
+                                                  </span>
+                                                </div>
                                               </div>
                                               <div className="flex items-center justify-end gap-1.5">
+                                                <ExerciseQuickNoteTrigger
+                                                  exerciseName={exercise.name}
+                                                  onClick={() =>
+                                                    onStartExerciseQuickNote(
+                                                      exercise.name
+                                                    )
+                                                  }
+                                                  setNumber={setNumber}
+                                                />
+                                                {isTimeExercise ? (
+                                                  <ExerciseTimerTrigger
+                                                    exerciseName={exercise.name}
+                                                    isOpen={isTimerOpen}
+                                                    onToggleOpen={() =>
+                                                      handleToggleTimerPanel(
+                                                        inputKey
+                                                      )
+                                                    }
+                                                    setNumber={setNumber}
+                                                  />
+                                                ) : null}
                                                 <input
                                                   aria-label={`${exercise.name} serie ${setNumber}`}
                                                   className={cn(
-                                                    "h-[46px] rounded-xl border bg-card px-2 text-center text-lg font-bold tabular-nums outline-none transition-shadow focus:border-solid focus:border-accent focus:text-foreground focus:ring-[3px] focus:ring-accent/20",
-                                                    hasFieldValue &&
-                                                      !isFieldConfirmed
-                                                      ? "border-dashed border-border text-muted-foreground/70"
-                                                      : "border-border text-foreground",
+                                                    "h-8 rounded border-2 border-border bg-card px-2 text-right text-sm font-bold text-foreground outline-none focus:border-accent",
                                                     exercise.durationFormat ===
                                                       "mmss"
-                                                      ? "w-[84px] placeholder:text-sm placeholder:font-semibold"
-                                                      : "w-[76px]"
+                                                      ? "w-16 placeholder:text-[0.78rem] placeholder:font-semibold"
+                                                      : "w-14"
                                                   )}
                                                   data-workout-input
-                                                  enterKeyHint="next"
                                                   id={inputId}
                                                   onFocus={
                                                     handleWorkoutInputFocus
@@ -2082,30 +1965,13 @@ function SessionPanel({
                                                     )
                                                   }
                                                   onBlur={(event) => {
-                                                    const normalizedValue =
+                                                    onValueBlur(
+                                                      inputKey,
                                                       normalizeExerciseInputValueOnBlur(
                                                         exercise,
                                                         event.target.value
                                                       )
-
-                                                    onValueBlur(
-                                                      inputKey,
-                                                      normalizedValue
                                                     )
-
-                                                    const movedToField =
-                                                      event.relatedTarget instanceof
-                                                        HTMLInputElement ||
-                                                      event.relatedTarget instanceof
-                                                        HTMLTextAreaElement
-
-                                                    if (
-                                                      normalizedValue.length === 0
-                                                    ) {
-                                                      onUnconfirmValue(inputKey)
-                                                    } else if (movedToField) {
-                                                      onConfirmValue(inputKey)
-                                                    }
 
                                                     const boundaryGroupId =
                                                       groupBoundaryInputs.get(
@@ -2149,15 +2015,36 @@ function SessionPanel({
                                                   )}
                                                   value={values[inputKey] ?? ""}
                                                 />
-                                                <span
-                                                  aria-hidden="true"
-                                                  className="flex w-4 shrink-0 items-center justify-center"
-                                                >
-                                                  {isFieldConfirmed ? (
-                                                    <Check className="size-4 text-accent" />
-                                                  ) : null}
-                                                </span>
                                               </div>
+                                              {isTimeExercise && isTimerOpen ? (
+                                                <div className="col-span-2 pt-1">
+                                                  <ExerciseTimerBand
+                                                    elapsedSeconds={
+                                                      elapsedSeconds
+                                                    }
+                                                    isRunning={
+                                                      timerState.runningTimerKey ===
+                                                      inputKey
+                                                    }
+                                                    onApply={() =>
+                                                      handleApplyTimerValue(
+                                                        inputKey,
+                                                        inputKey,
+                                                        exercise
+                                                      )
+                                                    }
+                                                    onReset={() =>
+                                                      handleResetTimer(inputKey)
+                                                    }
+                                                    onToggleRunning={() =>
+                                                      handleToggleTimerRunning(
+                                                        inputKey
+                                                      )
+                                                    }
+                                                    timerId={timerId}
+                                                  />
+                                                </div>
+                                              ) : null}
                                             </div>
                                           )
                                         })}
@@ -2177,17 +2064,16 @@ function SessionPanel({
             })}
 
             <div className="space-y-1.5 pt-2">
-              <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-foreground">
                 <NotebookPen className="size-3.5" />
-                Nota de sesión
+                Nota
               </label>
               <SessionQuickNoteChips
                 note={note}
                 onAddNote={onAddSessionQuickNote}
               />
               <AutoResizeTextarea
-                className="min-h-32 w-full rounded-[13px] border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-24"
-                id={SESSION_NOTE_TEXTAREA_ID}
+                className="min-h-32 w-full rounded-md border-2 border-border bg-muted px-3 py-2 text-sm text-foreground outline-none focus:border-accent focus:bg-accent/10 sm:min-h-24"
                 maxLength={500}
                 onChange={(event) => onNoteChange(event.target.value)}
                 placeholder="Cómo te sentiste, ajustes..."
@@ -2195,83 +2081,25 @@ function SessionPanel({
               />
             </div>
 
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl">
-              <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-                <div className="shrink-0 text-center leading-tight">
-                  <div className="text-base font-bold tabular-nums text-foreground">
-                    {savedBarProgressLabel}
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    series
-                  </div>
-                </div>
-                <Button
-                  className="h-[52px] flex-1 text-base"
-                  disabled={!hasWeightedGroups || isPending}
-                  onClick={() => {
-                    void onSubmit()
-                  }}
-                  type="button"
-                  variant="action"
-                >
-                  {isPending ? "Guardando..." : "Guardar sesión"}
-                </Button>
-              </div>
-            </div>
+            <Button
+              className="h-12 w-full rounded-md"
+              disabled={!hasWeightedGroups || isPending}
+              onClick={() => {
+                void onSubmit()
+              }}
+              type="button"
+              variant="action"
+            >
+              {isPending ? "Guardando..." : "Guardar sesión"}
+            </Button>
           </>
         ) : (
-          <div className="rounded-xl border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed border-border bg-muted px-3 py-4 text-sm text-muted-foreground">
             Esta rutina no tiene ejercicios con seguimiento de peso.
           </div>
         )}
-      {(() => {
-        if (!sheetTarget) {
-          return null
-        }
-
-        const sheetInputKey = buildWeightInputKey(
-          sheetTarget.exercise.id,
-          sheetTarget.setNumber
-        )
-
-        return (
-          <ExerciseSheet
-            elapsedSeconds={getElapsedTimerSeconds(
-              timerState,
-              sheetInputKey,
-              timerNowMs
-            )}
-            exercise={sheetTarget.exercise}
-            isTimerOpen={timerState.openTimerKey === sheetInputKey}
-            isTimerRunning={timerState.runningTimerKey === sheetInputKey}
-            onApplyTimer={() =>
-              handleApplyTimerValue(
-                sheetInputKey,
-                sheetInputKey,
-                sheetTarget.exercise
-              )
-            }
-            onOpenChange={(open) => {
-              if (!open) {
-                setSheetTarget(null)
-              }
-            }}
-            onRemoveDayExercise={onRemoveDayExercise}
-            onResetTimer={() => handleResetTimer(sheetInputKey)}
-            onStartExerciseQuickNote={onStartExerciseQuickNote}
-            onStartSwap={onStartSwap}
-            onToggleTimerOpen={() => handleToggleTimerPanel(sheetInputKey)}
-            onToggleTimerRunning={() =>
-              handleToggleTimerRunning(sheetInputKey)
-            }
-            onUndoSwap={onUndoSwap}
-            open
-            progressHref={`/progress/${sheetTarget.exercise.movementId}?routineId=${selectedRoutineId}&slotId=${sheetTarget.exercise.slotId}`}
-            setNumber={sheetTarget.setNumber}
-          />
-        )
-      })()}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2307,7 +2135,6 @@ export function WorkoutApp({
   const [shouldScrollToRoutine, setShouldScrollToRoutine] = useState(false)
   const [note, setNote] = useState("")
   const [values, setValues] = useState<Record<string, string>>({})
-  const [confirmedKeys, setConfirmedKeys] = useState<string[]>([])
   const [slotAssignments, setSlotAssignments] = useState<SlotAssignments>({})
   const [swapSourceSlotId, setSwapSourceSlotId] = useState<string | null>(null)
   const [dayExercisesByGroupId, setDayExercisesByGroupId] =
@@ -2369,27 +2196,6 @@ export function WorkoutApp({
     () => getSessionExerciseBySlotId(sessionRoutine, swapSourceSlotId),
     [sessionRoutine, swapSourceSlotId]
   )
-  const heroTitle = splitRoutineTitle(selectedRoutine?.name ?? "Sin rutina")
-  const routineTotals = React.useMemo(
-    () => countRoutineBlocksAndSeries(sessionRoutine),
-    [sessionRoutine]
-  )
-  const confirmedSeriesCount = React.useMemo(
-    () => getSeriesProgress(sessionRoutine, confirmedKeys).confirmedSeries,
-    [sessionRoutine, confirmedKeys]
-  )
-  const handleConfirmValue = useCallback((key: string) => {
-    setConfirmedKeys((currentKeys) =>
-      currentKeys.includes(key) ? currentKeys : [...currentKeys, key]
-    )
-  }, [])
-  const handleUnconfirmValue = useCallback((key: string) => {
-    setConfirmedKeys((currentKeys) =>
-      currentKeys.includes(key)
-        ? currentKeys.filter((currentKey) => currentKey !== key)
-        : currentKeys
-    )
-  }, [])
   const selectedExerciseIds = React.useMemo(
     () =>
       new Set(
@@ -2413,14 +2219,7 @@ export function WorkoutApp({
       ? readWorkoutSessionDraft(selectedRoutine.id)
       : null
 
-    const hydratedValues = savedDraft?.values ?? selectedRoutineInitialValues
-
-    setValues(hydratedValues)
-    setConfirmedKeys(
-      (savedDraft?.confirmedKeys ?? []).filter(
-        (key) => (hydratedValues[key] ?? "").length > 0
-      )
-    )
+    setValues(savedDraft?.values ?? selectedRoutineInitialValues)
     setSlotAssignments(
       savedDraft?.slotAssignments ?? selectedRoutineInitialSlotAssignments
     )
@@ -2461,7 +2260,6 @@ export function WorkoutApp({
       values: draftValues,
       slotAssignments,
       dayExercisesByGroupId,
-      confirmedKeys,
       initialValues: selectedRoutineInitialValues,
       initialSlotAssignments: selectedRoutineInitialSlotAssignments,
     })
@@ -2478,10 +2276,8 @@ export function WorkoutApp({
       values: draftValues,
       slotAssignments,
       dayExercisesByGroupId,
-      confirmedKeys,
     })
   }, [
-    confirmedKeys,
     dayExercisesByGroupId,
     note,
     selectedRoutine,
@@ -2762,7 +2558,6 @@ export function WorkoutApp({
       clearWorkoutSessionDrafts()
       skipNextDraftWriteRef.current = true
       setValues({})
-      setConfirmedKeys([])
       setSlotAssignments(buildInitialSlotAssignments(selectedRoutine))
       setSwapSourceSlotId(null)
       setDayExercisesByGroupId({})
@@ -2791,7 +2586,7 @@ export function WorkoutApp({
   }
 
   return (
-    <div className="mx-auto w-full">
+    <div className="mx-auto max-w-6xl">
       {status.type !== "idle" ? (
         <FloatingToast
           onClose={() => setStatus({ type: "idle", message: "" })}
@@ -2832,45 +2627,46 @@ export function WorkoutApp({
         open={quickNoteExerciseName !== null}
       />
 
-      <section className="mb-5 space-y-2">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-accent-soft-foreground">
-          {heroTitle.kicker}
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {heroTitle.title}
-        </h1>
-        <p className="text-[13px] text-muted-foreground">
-          {routineTotals.blocks}{" "}
-          {routineTotals.blocks === 1 ? "bloque" : "bloques"} ·{" "}
-          {routineTotals.series} series
-        </p>
-        <div className="pt-1">
-          <div className="h-[7px] w-full overflow-hidden rounded-full bg-border">
-            <span
-              className="block h-full rounded-full bg-accent transition-all"
-              style={{
-                width: `${
-                  routineTotals.series > 0
-                    ? Math.round(
-                        (confirmedSeriesCount / routineTotals.series) * 100
-                      )
-                    : 0
-                }%`,
-              }}
-            />
+      <section className="relative mb-4 overflow-hidden rounded-lg border-2 border-border bg-card px-4 py-4 shadow-brutal md:px-5 md:py-5">
+        <div className="space-y-3">
+          <div className="inline-flex items-center rounded border-2 border-border bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent-foreground">
+            Gym App
           </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {confirmedSeriesCount} de {routineTotals.series} series confirmadas
-          </p>
+          <div className="max-w-3xl">
+            <h1 className="text-2xl font-black uppercase tracking-tight text-foreground md:text-3xl">
+              Entrenamiento de hoy
+            </h1>
+          </div>
+          <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-2">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Rutina seleccionada
+              </div>
+              <div className="truncate text-sm font-bold text-foreground">
+                {selectedRoutine?.name ?? "Sin rutina"}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-2xl font-black text-foreground">
+                {attendance.daysWithSessions.length}
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                días este mes
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <div className="grid gap-4">
-        <RoutineList
-          onSelect={handleSelectRoutine}
-          routines={routines}
-          selectedRoutineId={selectedRoutineId}
-        />
+      <div className="grid gap-3 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-3">
+          <AttendanceCard attendance={attendance} history={history} />
+          <RoutineList
+            onSelect={handleSelectRoutine}
+            routines={routines}
+            selectedRoutineId={selectedRoutineId}
+          />
+        </div>
 
         <div className="grid gap-3">
           {sessionRoutine ? (
@@ -2903,14 +2699,12 @@ export function WorkoutApp({
               routine={sessionRoutine}
               selectedRoutineId={selectedRoutineId}
               values={values}
-              confirmedKeys={confirmedKeys}
-              onConfirmValue={handleConfirmValue}
-              onUnconfirmValue={handleUnconfirmValue}
             />
           ) : null}
         </div>
+      </div>
 
-        <AttendanceCard attendance={attendance} history={history} />
+      <div className="mt-3">
         <SessionHistory history={history} />
       </div>
     </div>

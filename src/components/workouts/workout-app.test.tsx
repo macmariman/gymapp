@@ -265,7 +265,7 @@ describe("WorkoutApp", () => {
 
     const firstSeriesContainer = screen
       .getByLabelText("Pecho plano con barra serie 1")
-      .closest("div[data-set-container]")
+      .closest("div.space-y-1")
 
     expect(firstSeriesContainer).not.toBeNull()
 
@@ -282,24 +282,14 @@ describe("WorkoutApp", () => {
     expect(
       firstSeriesScope.getByLabelText("Fondo tríceps en banco serie 1")
     ).toHaveValue("")
-    await user.click(
-      screen.getByRole("button", {
-        name: "Opciones de Pecho plano con barra serie 1",
-      })
-    )
     expect(
-      screen.getByRole("link", { name: /ver progreso \/ historial/i })
+      screen.getAllByRole("link", {
+        name: "Ver progreso de Pecho plano con barra",
+      })[0]
     ).toHaveAttribute(
       "href",
       "/progress/movement-1?routineId=routine-1&slotId=exercise-1"
     )
-
-    await user.keyboard("{Escape}")
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("link", { name: /ver progreso \/ historial/i })
-      ).not.toBeInTheDocument()
-    })
 
     await user.click(screen.getByRole("button", { name: /^cardio/i }))
 
@@ -482,10 +472,9 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Opciones de Pecho plano con barra serie 1",
+        name: "Agregar nota rápida para Pecho plano con barra serie 1",
       })
     )
-    fireEvent.click(screen.getByRole("button", { name: "Agregar nota" }))
 
     const dialog = screen.getByRole("dialog")
     expect(
@@ -521,10 +510,9 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Opciones de Pecho plano con barra serie 1",
+        name: "Agregar nota rápida para Pecho plano con barra serie 1",
       })
     )
-    fireEvent.click(screen.getByRole("button", { name: "Agregar nota" }))
 
     const dialog = screen.getByRole("dialog")
     await user.click(within(dialog).getByRole("button", { name: "Subir peso" }))
@@ -576,10 +564,9 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Opciones de Pecho plano con barra serie 1",
+        name: "Agregar nota rápida para Pecho plano con barra serie 1",
       })
     )
-    fireEvent.click(screen.getByRole("button", { name: "Agregar nota" }))
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "Subir peso",
@@ -635,113 +622,6 @@ describe("WorkoutApp", () => {
     expect(
       screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
     ).toHaveValue("Draft note")
-  })
-
-  it("does not count prefilled values as confirmed series", () => {
-    render(<WorkoutApp {...workoutPageData} />)
-
-    expect(
-      screen.getByText("0 de 9 series confirmadas")
-    ).toBeInTheDocument()
-    expect(screen.getByText("0/9")).toBeInTheDocument()
-  })
-
-  it("confirms fields when focus advances and counts complete series", async () => {
-    const user = userEvent.setup()
-    render(<WorkoutApp {...workoutPageData} />)
-
-    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
-
-    const firstInput = screen.getByLabelText("Pecho plano con barra serie 1")
-    const secondInput = screen.getByLabelText("Fondo tríceps en banco serie 1")
-
-    act(() => {
-      firstInput.focus()
-    })
-    fireEvent.blur(firstInput, { relatedTarget: secondInput })
-
-    expect(
-      screen.getByText("0 de 9 series confirmadas")
-    ).toBeInTheDocument()
-
-    await user.type(secondInput, "12")
-
-    act(() => {
-      secondInput.focus()
-    })
-    fireEvent.blur(secondInput, {
-      relatedTarget: screen.getByLabelText("Pecho plano con barra serie 2"),
-    })
-
-    expect(
-      screen.getByText("1 de 9 series confirmadas")
-    ).toBeInTheDocument()
-    expect(screen.getByText("1/9")).toBeInTheDocument()
-  })
-
-  it("restores confirmed keys from the draft and ignores stale ones", async () => {
-    const user = userEvent.setup()
-    window.localStorage.setItem(
-      `${workoutDraftKeyPrefix}routine-1`,
-      JSON.stringify({
-        version: 1,
-        routineId: "routine-1",
-        note: "",
-        values: {
-          "exercise-0:1": "30",
-          "exercise-1:1": "66",
-          "exercise-2:1": "12",
-        },
-        slotAssignments: {},
-        dayExercisesByGroupId: {},
-        confirmedKeys: [
-          "exercise-0:1",
-          "exercise-1:1",
-          "exercise-2:1",
-          "exercise-missing:1",
-        ],
-      })
-    )
-
-    render(<WorkoutApp {...workoutPageData} />)
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("2 de 9 series confirmadas")
-      ).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole("button", { name: /bloque 1/i }))
-    expect(
-      screen.getByLabelText("Pecho plano con barra serie 1")
-    ).toHaveValue("66")
-  })
-
-  it("loads drafts saved before confirmed tracking without confirmations", async () => {
-    window.localStorage.setItem(
-      `${workoutDraftKeyPrefix}routine-1`,
-      JSON.stringify({
-        version: 1,
-        routineId: "routine-1",
-        note: "Old draft",
-        values: {
-          "exercise-1:1": "66",
-        },
-        slotAssignments: {},
-        dayExercisesByGroupId: {},
-      })
-    )
-
-    render(<WorkoutApp {...workoutPageData} />)
-
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText("Cómo te sentiste, ajustes...")
-      ).toHaveValue("Old draft")
-    })
-    expect(
-      screen.getByText("0 de 9 series confirmadas")
-    ).toBeInTheDocument()
   })
 
   it("keeps drafts separated by routine", async () => {
@@ -929,11 +809,10 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /zona media/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Opciones de Plancha ventral serie 1",
+        name: "Usar cronómetro en Plancha ventral serie 1",
       })
     )
-    fireEvent.click(screen.getByRole("button", { name: "Cronómetro" }))
-    fireEvent.click(screen.getByRole("button", { name: "Iniciar" }))
+    await user.click(screen.getByRole("button", { name: "Iniciar" }))
 
     act(() => {
       jest.advanceTimersByTime(37_000)
@@ -941,12 +820,10 @@ describe("WorkoutApp", () => {
 
     expect(screen.getByText("00:37")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Usar" }))
+    await user.click(screen.getByRole("button", { name: "Usar" }))
 
     expect(screen.getByLabelText("Plancha ventral serie 1")).toHaveValue("37")
-    expect(
-      screen.queryByRole("button", { name: "Usar" })
-    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
   })
 
   it("requests and releases a wake lock while the stopwatch is running", async () => {
@@ -974,17 +851,16 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /zona media/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Opciones de Plancha ventral serie 1",
+        name: "Usar cronómetro en Plancha ventral serie 1",
       })
     )
-    fireEvent.click(screen.getByRole("button", { name: "Cronómetro" }))
-    fireEvent.click(screen.getByRole("button", { name: "Iniciar" }))
+    await user.click(screen.getByRole("button", { name: "Iniciar" }))
 
     await waitFor(() => {
       expect(wakeLockRequestMock).toHaveBeenCalledWith("screen")
     })
 
-    fireEvent.click(screen.getByRole("button", { name: "Pausar" }))
+    await user.click(screen.getByRole("button", { name: "Pausar" }))
 
     expect(resolveWakeLockRequest).not.toBeNull()
 
@@ -1015,11 +891,10 @@ describe("WorkoutApp", () => {
     await user.click(screen.getByRole("button", { name: /^cardio/i }))
     await user.click(
       screen.getByRole("button", {
-        name: "Opciones de Correr serie 1",
+        name: "Usar cronómetro en Correr serie 1",
       })
     )
-    fireEvent.click(screen.getByRole("button", { name: "Cronómetro" }))
-    fireEvent.click(screen.getByRole("button", { name: "Iniciar" }))
+    await user.click(screen.getByRole("button", { name: "Iniciar" }))
 
     act(() => {
       jest.advanceTimersByTime(123_000)
@@ -1027,12 +902,10 @@ describe("WorkoutApp", () => {
 
     expect(screen.getByText("02:03")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Usar" }))
+    await user.click(screen.getByRole("button", { name: "Usar" }))
 
     expect(screen.getByLabelText("Correr serie 1")).toHaveValue("02:03")
-    expect(
-      screen.queryByRole("button", { name: "Usar" })
-    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument()
   })
 
   it("swaps exercises inside the same routine and can undo the swap", async () => {
@@ -1040,13 +913,16 @@ describe("WorkoutApp", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    const pechoRow = screen
+      .getByLabelText("Pecho plano con barra serie 1")
+      .closest("div.grid")
+
+    expect(pechoRow).not.toBeNull()
+
     await user.click(
-      screen.getByRole("button", {
-        name: "Opciones de Pecho plano con barra serie 1",
+      within(pechoRow as HTMLElement).getByRole("button", {
+        name: "Intercambiar",
       })
-    )
-    fireEvent.click(
-      screen.getByRole("button", { name: "Cambiar ejercicio" })
     )
 
     expect(screen.getByText("Intercambiar ejercicio")).toBeInTheDocument()
@@ -1076,13 +952,16 @@ describe("WorkoutApp", () => {
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
 
+    const swappedRow = screen
+      .getByLabelText("Aperturas con mancuernas serie 1")
+      .closest("div.grid")
+
+    expect(swappedRow).not.toBeNull()
+
     await user.click(
-      screen.getByRole("button", {
-        name: "Opciones de Aperturas con mancuernas serie 1",
+      within(swappedRow as HTMLElement).getByRole("button", {
+        name: "Deshacer intercambio",
       })
-    )
-    fireEvent.click(
-      screen.getByRole("button", { name: "Deshacer intercambio" })
     )
 
     // After undo, "Pecho plano" is back in Bloque 1 (3 series), so serie 4 input is gone
@@ -1098,13 +977,16 @@ describe("WorkoutApp", () => {
     render(<WorkoutApp {...workoutPageData} />)
 
     await user.click(screen.getByRole("button", { name: /bloque 1/i }))
+    const pechoRow = screen
+      .getByLabelText("Pecho plano con barra serie 1")
+      .closest("div.grid")
+
+    expect(pechoRow).not.toBeNull()
+
     await user.click(
-      screen.getByRole("button", {
-        name: "Opciones de Pecho plano con barra serie 1",
+      within(pechoRow as HTMLElement).getByRole("button", {
+        name: "Intercambiar",
       })
-    )
-    fireEvent.click(
-      screen.getByRole("button", { name: "Cambiar ejercicio" })
     )
     await user.click(
       screen.getByRole("button", { name: /aperturas con mancuernas/i })
@@ -1223,11 +1105,8 @@ describe("WorkoutApp", () => {
     expect(screen.getByLabelText("Remo con barra serie 1")).toBeInTheDocument()
 
     await user.click(
-      screen.getByRole("button", {
-        name: "Opciones de Remo con barra serie 1",
-      })
+      screen.getAllByRole("button", { name: "Quitar Remo con barra" })[0]
     )
-    fireEvent.click(screen.getByRole("button", { name: "Quitar" }))
 
     expect(
       screen.queryByLabelText("Remo con barra serie 1")
@@ -1238,11 +1117,13 @@ describe("WorkoutApp", () => {
     const user = userEvent.setup()
     render(<WorkoutApp {...workoutPageData} />)
 
-    expect(screen.queryByText("días entrenados")).not.toBeInTheDocument()
+    expect(
+      screen.queryByText("Asistencia del mes actual")
+    ).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: /asistencia/i }))
 
-    expect(screen.getByText("días entrenados")).toBeInTheDocument()
+    expect(screen.getByText("Asistencia del mes actual")).toBeInTheDocument()
   })
 
   it("keeps history collapsed until the section and session are opened", async () => {
